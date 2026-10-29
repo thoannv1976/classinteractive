@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, ChevronRight } from 'lucide-react';
+import { BarChart3, CalendarDays, ChevronRight, ShieldCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import type { ClassDoc, SessionDoc, SessionStatsDoc } from '@classinteract/shared';
 import { buttonVariants } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { SessionStatusBadge, sessionLabel, sessionTime } from '../common/Session
 
 export function ClassDetailPage() {
   const { classId } = useParams();
-  const cls = useApi<{ class: ClassDoc }>(`/classes/${classId}`);
+  const cls = useApi<{ class: ClassDoc; access: { canModerate: boolean; memberRole: string | null } }>(`/classes/${classId}`);
   const sessions = useApi<{ items: (SessionDoc & { stats: SessionStatsDoc | null })[] }>(`/classes/${classId}/sessions`, { refetchInterval: 30_000 });
   if (cls.error) return <ErrorState error={cls.error} />;
   const c = cls.data?.class;
@@ -23,9 +23,16 @@ export function ClassDetailPage() {
         title={c ? `${c.classCode} · ${c.courseName}` : 'Đang tải…'}
         description={c && `${c.lecturerNames.join(', ')} · ${c.semester} ${c.academicYear}${c.schedule ? ' · ' + c.schedule : ''}`}
         actions={
-          <Link to={`/participation/${classId}`} className={buttonVariants({ variant: 'outline' })}>
-            <BarChart3 className="h-4 w-4" /> Mức độ tham gia của tôi
-          </Link>
+          <>
+            {cls.data?.access.canModerate && (
+              <Link to={`/teach/classes/${classId}/questions`} className={buttonVariants({ variant: 'soft' })}>
+                <ShieldCheck className="h-4 w-4" /> Hỗ trợ lớp (trợ giảng)
+              </Link>
+            )}
+            <Link to={`/participation/${classId}`} className={buttonVariants({ variant: 'outline' })}>
+              <BarChart3 className="h-4 w-4" /> Mức độ tham gia của tôi
+            </Link>
+          </>
         }
       />
       <Card>

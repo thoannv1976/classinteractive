@@ -183,7 +183,8 @@ export function App() {
           <Route path="classes/:classId/sessions/:sessionId" element={<StudentSessionPage />} />
           <Route path="classes/:classId/sessions/:sessionId/posts/:postId" element={<QuestionPage />} />
           <Route path="session" element={<SessionTabPage />} />
-          <Route path="join/:code" element={<SessionTabPage />} />
+          <Route path="join" element={<SessionTabPage />} />
+        <Route path="join/:code" element={<SessionTabPage />} />
           <Route path="participation" element={<ParticipationPage />} />
           <Route path="participation/:classId" element={<MyClassParticipationPage />} />
           {/* Common */}

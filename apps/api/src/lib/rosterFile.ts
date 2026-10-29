@@ -67,7 +67,7 @@ export async function parseRosterFile(filename: string, base64: string): Promise
   const buf = Buffer.from(base64, 'base64');
   let grid: string[][];
   if (/\.csv$/i.test(filename) || /\.txt$/i.test(filename)) {
-    grid = parseCsv(buf.toString('utf8').replace(/^﻿/, ''));
+    grid = parseCsv(buf.toString('utf8').replace(/^\uFEFF/, ''));
   } else if (/\.xlsx$/i.test(filename)) {
     const wb = new ExcelJS.Workbook();
     try {

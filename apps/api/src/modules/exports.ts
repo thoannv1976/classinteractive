@@ -62,7 +62,7 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
 
   const authorCols = (p: (typeof posts)[number]) => {
     if (p.isAiGenerated) return ['AI (đã duyệt)', ''];
-    if (p.isAnonymous && !revealAnonymous) return ['Ẩn danh', ''];
+    if (p.isAnonymous && !(revealAnonymous && p.identityRevealable)) return ['Ẩn danh', ''];
     const m = p.authorUid ? members.get(p.authorUid) : undefined;
     if (m) return [m.displayName + (p.isAnonymous ? ' (ẩn danh)' : ''), m.studentId ?? ''];
     return [p.authorUid ? (userName.get(p.authorUid) ?? p.authorName) : p.authorName, ''];

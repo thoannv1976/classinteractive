@@ -15,7 +15,7 @@ import { formatDateTime } from '@/lib/utils';
 import type { Time } from '@classinteract/shared';
 
 const NAMES: Record<AiProvider, string> = { anthropic: 'Anthropic Claude', openai: 'OpenAI', gemini: 'Google Gemini' };
-const SECRET: Record<AiProvider, string> = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY' };
+const SECRET: Record<AiProvider, string> = { anthropic: 'anthropic-api-key', openai: 'openai-api-key', gemini: 'gemini-api-key' };
 
 interface Usage {
   months: { month: string; costUsd: number; runs: number }[];

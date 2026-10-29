@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { ApiError, api, errorMessage } from '@/lib/api';
 import { useDraft } from '@/lib/drafts';
+import { rememberMyPost } from '@/lib/myPosts';
 import { cn, requestId } from '@/lib/utils';
 import { similarQuestions } from './hooks';
 
@@ -22,6 +23,7 @@ export function Composer({
   sessionId,
   topics,
   allowAnonymous,
+  revealToStaff,
   disabled,
   disabledReason,
   existing,
@@ -31,6 +33,8 @@ export function Composer({
   sessionId: string;
   topics: string[];
   allowAnonymous: boolean;
+  /** Class lets lecturers see who wrote anonymous posts (shown to the author before sending). */
+  revealToStaff?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   existing: PostDoc[];
@@ -50,7 +54,7 @@ export function Composer({
     setSending(true);
     pendingKey.current ??= requestId();
     try {
-      await api.post(`/classes/${classId}/sessions/${sessionId}/posts`, {
+      const r = await api.post<{ postId: string }>(`/classes/${classId}/sessions/${sessionId}/posts`, {
         type,
         content,
         topics: selected,
@@ -58,6 +62,7 @@ export function Composer({
         clientRequestId: pendingKey.current,
       });
       pendingKey.current = null;
+      rememberMyPost(r.postId);
       clear();
       setSelected([]);
       toast.success(type === 'question' ? 'Đã gửi câu hỏi' : 'Đã gửi');
@@ -135,6 +140,12 @@ export function Composer({
           })}
         </div>
       )}
+      {anon && (
+        <p className="mb-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
+          Tên bạn được ẩn với các bạn trong lớp.{' '}
+          {revealToStaff ? 'Theo chính sách lớp, giảng viên vẫn có thể xem danh tính (mỗi lần xem được ghi nhật ký).' : 'Giảng viên cũng không thấy tên bạn.'} Đóng góp vẫn được tính vào mức độ tham gia của bạn.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
         {allowAnonymous ? (
           <label className="flex items-center gap-2 text-xs text-muted">
@@ -181,13 +192,14 @@ export function ReplyComposer({
     setSending(true);
     pendingKey.current ??= requestId();
     try {
-      await api.post(`/classes/${classId}/sessions/${sessionId}/posts/${postId}/replies`, {
+      const r = await api.post<{ postId: string }>(`/classes/${classId}/sessions/${sessionId}/posts/${postId}/replies`, {
         type,
         content,
         isAnonymous: anon,
         clientRequestId: pendingKey.current,
       });
       pendingKey.current = null;
+      rememberMyPost(r.postId);
       clear();
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 0)) pendingKey.current = null;

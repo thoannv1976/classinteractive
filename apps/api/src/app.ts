@@ -32,7 +32,7 @@ export async function buildApp() {
             redact: ['req.headers.authorization', 'req.headers["x-setup-token"]'],
           },
     trustProxy: true,
-    bodyLimit: 2 * 1024 * 1024,
+    bodyLimit: 4 * 1024 * 1024,
   });
 
   app.setErrorHandler(errorHandler);

@@ -14,7 +14,6 @@ import { Composer } from '@/components/classroom/Composer';
 import { PostCard } from '@/components/classroom/PostCard';
 import { sessionPath, sortPosts, useActivities, useFeed } from '@/components/classroom/hooks';
 import { api, errorMessage } from '@/lib/api';
-import { useMe } from '@/lib/auth';
 import { useLiveDoc } from '@/lib/firestore';
 import { useApi } from '@/lib/query';
 import { toDate } from '@/lib/utils';
@@ -37,7 +36,6 @@ export function StudentSessionPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const tab = params.get('tab') ?? 'qa';
-  const me = useMe();
   const meta = useApi<{ class: ClassDoc; joined: boolean; access: { canModerate: boolean; canManage: boolean } }>(`/classes/${classId}/sessions/${sessionId}`);
   const session = useLiveDoc<SessionDoc>(sessionPath(classId, sessionId));
   const stats = useLiveDoc<SessionStatsDoc>(`${sessionPath(classId, sessionId)}/stats/summary`);
@@ -110,7 +108,8 @@ export function StudentSessionPage() {
               sessionId={sessionId}
               topics={s.topics}
               allowAnonymous={cls.settings.allowAnonymous}
-              disabled={!accept.ok || s.status === 'closed'}
+              revealToStaff={cls.settings.revealAnonymousToStaff}
+              disabled={s.status !== 'open'}
               disabledReason={accept.reason || 'Buổi học đã kết thúc, chỉ có thể trả lời bổ sung'}
               existing={feed.data}
             />
@@ -141,7 +140,7 @@ export function StudentSessionPage() {
                     staff={false}
                     editWindowMinutes={cls.settings.editWindowMinutes}
                     onOpenThread={() => navigate(`/classes/${classId}/sessions/${sessionId}/posts/${p.postId}`)}
-                    canAskAiAsStudent={studentAi && p.authorId === me.uid}
+                    canAskAiAsStudent={studentAi}
                     onAskAi={studentAi ? askAiAsStudent : undefined}
                   />
                 ))}

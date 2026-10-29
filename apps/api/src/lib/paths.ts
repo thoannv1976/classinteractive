@@ -1,6 +1,6 @@
 import { db } from '../firebase';
 
-/** Central place for Firestore locations (see docs/DATABASE.md). */
+/** Central place for Firestore locations (see docs/ARCHITECTURE.md). */
 export const C = {
   users: () => db.collection('users'),
   user: (uid: string) => db.collection('users').doc(uid),

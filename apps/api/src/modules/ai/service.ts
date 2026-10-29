@@ -10,7 +10,7 @@ import type {
 import { AI_PROVIDERS, SCHEMA_VERSION, isOpenQuestionStatus } from '@classinteract/shared';
 import { config } from '../../config';
 import { db, inc, now } from '../../firebase';
-import { bumpClassStats, bumpSessionStats } from '../../lib/counters';
+import { assertSessionAccepts, bumpClassStats, bumpSessionStats } from '../../lib/counters';
 import { AppError, conflict, notFound } from '../../lib/errors';
 import { C } from '../../lib/paths';
 import { monthKey, todayKey } from '../../lib/time';
@@ -98,7 +98,13 @@ async function reserveQuota(cls: ClassDoc, user: UserDoc, studentLimited: boolea
     tx.set(classRef, { classId: cls.classId, day, count: inc(1), updatedAt: now() }, { merge: true });
     tx.set(userRef, { classId: cls.classId, uid: user.uid, day, count: inc(1), updatedAt: now() }, { merge: true });
   });
-  return { monthRef };
+  const refund = async () => {
+    const b = db.batch();
+    b.set(classRef, { count: inc(-1) }, { merge: true });
+    b.set(userRef, { count: inc(-1) }, { merge: true });
+    await b.commit().catch(() => undefined);
+  };
+  return { monthRef, refund };
 }
 
 /**
@@ -124,6 +130,7 @@ export async function runAnswer(opts: {
   ]);
   if (!sessionSnap.exists || !postSnap.exists) throw notFound();
   const question = postSnap.data() as PostDoc;
+  if (opts.studentRequest) assertSessionAccepts(sessionSnap.data() as SessionDoc, 'reply');
   if (!question.isRoot || question.moderationStatus !== 'visible') throw notFound('Không tìm thấy câu hỏi');
   const replies = await C.posts(cls.classId, sessionId).where('rootPostId', '==', postId).get();
   const official = replies.docs
@@ -139,7 +146,7 @@ export async function runAnswer(opts: {
     .filter((p) => settings.providers[p]?.enabled && getAdapter(p).isConfigured());
   if (!order.length) throw new AppError(503, 'AI_NOT_CONFIGURED', 'Chưa cấu hình nhà cung cấp AI nào (thiếu API key)');
 
-  const { monthRef } = await reserveQuota(cls, user, opts.studentRequest, settings.monthlyCostLimitUsd);
+  const { monthRef, refund } = await reserveQuota(cls, user, opts.studentRequest, settings.monthlyCostLimitUsd);
 
   const runRef = C.aiRuns().doc();
   await runRef.set({
@@ -205,6 +212,7 @@ export async function runAnswer(opts: {
       attempts.push({ provider, error: msg.slice(0, 500) });
     }
   }
+  await refund();
   await runRef.update({ status: 'failed', attempts, error: attempts.map((a) => `${a.provider}: ${a.error}`).join(' | '), completedAt: now() });
   throw new AppError(502, 'AI_PROVIDER_ERROR', 'Dịch vụ AI tạm thời không khả dụng. Các chức năng lớp học vẫn hoạt động bình thường.', {
     attempts: attempts.map((a) => ({ provider: a.provider, error: a.error })),

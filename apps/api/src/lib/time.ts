@@ -24,5 +24,6 @@ export const toMillis = (v: unknown): number | null => {
   return null;
 };
 
-export const todayKey = (d = new Date()) => d.toISOString().slice(0, 10);
+/** Day key in Vietnam time (UTC+7), so daily quotas reset at local midnight. */
+export const todayKey = (d = new Date()) => new Date(d.getTime() + 7 * 3600_000).toISOString().slice(0, 10);
 export const monthKey = (d = new Date()) => d.toISOString().slice(0, 7);

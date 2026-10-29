@@ -1,0 +1,51 @@
+# Optional automated deployment. Requires Workload Identity Federation (no keys in GitHub):
+#   repository variables: GCP_PROJECT_ID, GCP_REGION, GCP_WIF_PROVIDER, GCP_DEPLOY_SA
+# See docs/DEPLOYMENT.md → "Triển khai tự động bằng GitHub Actions".
+name: Deploy
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION || 'asia-southeast1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Build & deploy API
+        run: |
+          IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/classinteract/api:${GITHUB_SHA::12}"
+          gcloud builds submit --config infrastructure/cloudbuild.api.yaml --substitutions "_IMAGE=$IMAGE" .
+          SECRETS="SETUP_TOKEN=classinteract-setup-token:latest"
+          for P in anthropic-api-key:ANTHROPIC_API_KEY openai-api-key:OPENAI_API_KEY gemini-api-key:GEMINI_API_KEY; do
+            gcloud secrets describe "${P%%:*}" >/dev/null 2>&1 && SECRETS="$SECRETS,${P#*:}=${P%%:*}:latest"
+          done
+          gcloud run deploy classinteract-api --image "$IMAGE" --region "$REGION" \
+            --service-account "classinteract-api@$PROJECT_ID.iam.gserviceaccount.com" \
+            --allow-unauthenticated --set-env-vars "GCLOUD_PROJECT=$PROJECT_ID,LOG_LEVEL=info" --set-secrets "$SECRETS"
+      - name: Build web & deploy Hosting + rules
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.GCP_PROJECT_ID }}.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          VITE_USE_EMULATORS: 'false'
+        run: |
+          pnpm --filter @classinteract/web build
+          pnpm exec firebase deploy --project "$PROJECT_ID" --only hosting,firestore:rules,firestore:indexes --non-interactive

@@ -36,6 +36,8 @@ describe('setup & staff accounts', () => {
     expect(login.status).toBe(200);
     expect(login.body.user.mustChangePassword).toBe(true);
     const tmp = new Client(ctx.app, await idTokenFor(login.body.token));
+    // Firebase compares revocation at 1-second granularity
+    await new Promise((r) => setTimeout(r, 1100));
     const ch = await tmp.post('/auth/change-password', { currentPassword: 'Temp@123', newPassword: 'Giangvien@1' });
     expect(ch.status).toBe(200);
     lecturer = await ctx.login('gv.an@uni.edu.vn', 'Giangvien@1');
@@ -178,6 +180,12 @@ describe('live session & Q&A', () => {
     expect(r.status).toBe(200);
     const reveal = await lecturer.get(`/classes/${classId}/sessions/${sessionId}/posts/${r.body.postId}/author`);
     expect(reveal.status).toBe(403); // class policy does not allow revealing
+    // ...and the lecturer cannot learn it from the student's profile either
+    const uid = (await sv1.get('/auth/me')).body.user.uid;
+    const profile = await lecturer.get(`/classes/${classId}/analytics/students/${uid}`);
+    expect(profile.body.posts.some((p: any) => p.content.includes('network effect'))).toBe(false);
+    const own = await sv1.get(`/classes/${classId}/analytics/students/${uid}`);
+    expect(own.body.posts.some((p: any) => p.content.includes('network effect'))).toBe(true);
   });
 
   it('hiding a post updates counters', async () => {
@@ -284,6 +292,20 @@ describe('security', () => {
     expect((await sv1.patch(`/classes/${classId}`, { name: 'hack' })).status).toBe(403);
     expect((await sv1.get(`/classes/${classId}/analytics/students`)).status).toBe(403);
     expect((await lecturer.get('/users')).status).toBe(403);
+  });
+
+  it('an admin cannot disable or reset another admin', async () => {
+    await admin.post('/users', { email: 'admin2@uni.edu.vn', displayName: 'Admin 2', role: 'admin', password: 'Admin2@123' });
+    const a2login = await ctx.anon.post('/auth/login', { loginId: 'admin2@uni.edu.vn', password: 'Admin2@123' });
+    const a2 = new Client(ctx.app, await idTokenFor(a2login.body.token));
+    await new Promise((r) => setTimeout(r, 1100));
+    await a2.post('/auth/change-password', { currentPassword: 'Admin2@123', newPassword: 'Admin2@456' });
+    const admin2 = await ctx.login('admin2@uni.edu.vn', 'Admin2@456');
+    await admin.post('/users', { email: 'admin3@uni.edu.vn', displayName: 'Admin 3', role: 'admin', password: 'Admin3@123' });
+    const list = await admin.get('/users?role=admin');
+    const a3 = list.body.items.find((u: any) => u.email === 'admin3@uni.edu.vn');
+    expect((await admin2.patch(`/users/${a3.uid}/status`, { status: 'disabled' })).status).toBe(403);
+    expect((await admin2.post(`/users/${a3.uid}/reset-password`, {})).status).toBe(403);
   });
 
   it('lecturer resets a student password', async () => {

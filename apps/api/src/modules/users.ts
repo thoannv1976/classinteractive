@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ClassDoc, MemberDoc, UserDoc } from '@classinteract/shared';
 import {
   canAssignRole,
+  canManageAccount,
   createStaffSchema,
   isAdminRole,
   listUsersQuerySchema,
@@ -106,7 +107,8 @@ export default async function userRoutes(app: FastifyInstance) {
   app.patch('/users/:id', { preHandler: requireAdmin }, async (req) => {
     const { id } = req.params as { id: string };
     const { displayName } = parse(updateUserProfileSchema, req.body);
-    await getUserOr404(id);
+    const target = await getUserOr404(id);
+    if (id !== currentUser(req).uid && !canManageAccount(currentUser(req).role, target.role)) throw forbidden();
     await C.user(id).update({ displayName, searchName: searchKey(displayName), updatedAt: now() });
     await audit(req, 'user.update_profile', 'user', id, { displayName });
     return { ok: true };
@@ -118,7 +120,7 @@ export default async function userRoutes(app: FastifyInstance) {
     const me = currentUser(req);
     if (id === me.uid) throw badRequest('Không thể tự khóa tài khoản của mình');
     const target = await getUserOr404(id);
-    if (target.role === 'superadmin' && me.role !== 'superadmin') throw forbidden();
+    if (!canManageAccount(me.role, target.role)) throw forbidden('Bạn không được quản lý tài khoản này');
     await setAccountStatus(id, target.displayName, status === 'disabled');
     await C.user(id).update({ status, updatedAt: now() });
     await audit(req, status === 'disabled' ? 'user.disable' : 'user.enable', 'user', id, { from: target.status, to: status });
@@ -148,7 +150,7 @@ export default async function userRoutes(app: FastifyInstance) {
     const { newPassword } = parse(resetPasswordSchema, req.body);
     const target = await getUserOr404(id);
     const allowed =
-      (isAdminRole(me.role) && (target.role !== 'superadmin' || me.role === 'superadmin')) ||
+      (isAdminRole(me.role) && me.uid !== id && canManageAccount(me.role, target.role)) ||
       (me.role === 'lecturer' && target.role === 'student' && (await lecturerTeachesStudent(me.uid, id)));
     if (!allowed) throw forbidden();
     const password = newPassword ?? tempPassword();

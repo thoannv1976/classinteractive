@@ -113,7 +113,7 @@ export function SessionControlPage() {
             <TabsTrigger value="people"><Users className="h-4 w-4" /> Người tham gia <Badge>{stats.data?.attendeeCount ?? 0}</Badge></TabsTrigger>
           </TabsList>
           <TabsContent value="feed" className="space-y-4">
-            <Composer classId={classId} sessionId={sessionId} topics={s.topics} allowAnonymous={false} disabled={!running && s.status !== 'closed'} disabledReason="Bắt đầu buổi học để đăng bài" existing={feed.data} />
+            <Composer classId={classId} sessionId={sessionId} topics={s.topics} allowAnonymous={false} disabled={s.status !== 'open'} disabledReason={s.status === 'paused' ? 'Buổi học đang tạm dừng' : 'Bắt đầu buổi học để đăng bài'} existing={feed.data} />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1">
                 {([

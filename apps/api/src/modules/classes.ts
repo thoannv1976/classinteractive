@@ -187,9 +187,9 @@ export default async function classRoutes(app: FastifyInstance) {
   /** Classes visible to the caller: memberships for students, assignments for lecturers, all for admins. */
   app.get('/classes', async (req) => {
     const me = currentUser(req);
-    const q = parse(z.object({ status: z.string().optional(), all: z.coerce.boolean().optional() }), req.query);
+    const q = parse(z.object({ status: z.string().optional(), all: z.enum(['true', 'false']).optional() }), req.query);
     let classes: ClassDoc[] = [];
-    if (isAdminRole(me.role) && q.all !== false) {
+    if (isAdminRole(me.role) && q.all !== 'false') {
       const snap = await C.classes().where('tenantId', '==', config.tenantId).orderBy('createdAt', 'desc').limit(500).get();
       classes = snap.docs.map((d) => d.data() as ClassDoc);
     } else {
@@ -223,9 +223,10 @@ export default async function classRoutes(app: FastifyInstance) {
       .where('tenantId', '==', config.tenantId)
       .where('classCode', '==', input.classCode)
       .where('semester', '==', input.semester)
+      .where('academicYear', '==', input.academicYear)
       .limit(1)
       .get();
-    if (!dup.empty) throw conflict(`Lớp ${input.classCode} đã tồn tại trong ${input.semester}`);
+    if (!dup.empty) throw conflict(`Lớp ${input.classCode} đã tồn tại trong ${input.semester} ${input.academicYear}`);
     const ref = C.classes().doc();
     const doc = {
       classId: ref.id,
@@ -402,7 +403,9 @@ export default async function classRoutes(app: FastifyInstance) {
         .where('classCode', '==', input.classCode)
         .where('status', '==', 'active')
         .get();
-      cls = snap.docs.map((d) => d.data() as ClassDoc).sort((a, b) => (String(a.semester) < String(b.semester) ? 1 : -1))[0];
+      cls = snap.docs
+        .map((d) => d.data() as ClassDoc)
+        .sort((a, b) => `${b.academicYear} ${b.semester}`.localeCompare(`${a.academicYear} ${a.semester}`))[0];
     }
     if (!cls || cls.status !== 'active') throw notFound('Không tìm thấy lớp học phần đang hoạt động với mã này');
     const member = await C.members(cls.classId).doc(me.uid).get();

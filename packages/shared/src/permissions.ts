@@ -36,6 +36,10 @@ export const canCreateClass = (role: UserRole) => isStaffRole(role);
 /** Account administration (enable/disable, roles, staff accounts). */
 export const canAdministerUsers = (role: UserRole) => isAdminRole(role);
 
+/** Whether the actor may disable, reset or edit the target account. Admins only manage students and lecturers. */
+export const canManageAccount = (actor: UserRole, target: UserRole) =>
+  actor === 'superadmin' || (actor === 'admin' && (target === 'student' || target === 'lecturer'));
+
 /** Only a superadmin may grant admin/superadmin roles. */
 export const canAssignRole = (actor: UserRole, target: UserRole) => {
   if (actor === 'superadmin') return true;

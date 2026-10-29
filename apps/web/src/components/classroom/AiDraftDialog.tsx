@@ -47,6 +47,8 @@ export function AiDraftDialog({
     if (!post) return;
     setLoading(true);
     setError(null);
+    if (run) await api.post(`/ai/runs/${run.runId}/reject`).catch(() => undefined);
+    setRun(null);
     try {
       const r = await api.post<RunResult>('/ai/answer', { classId, sessionId, postId: post.postId, provider: provider || undefined });
       setRun(r);

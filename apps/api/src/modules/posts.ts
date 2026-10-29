@@ -119,6 +119,7 @@ export default async function postRoutes(app: FastifyInstance) {
         authorName: input.isAnonymous ? 'Ẩn danh' : me.displayName,
         authorRole,
         isAnonymous: input.isAnonymous,
+        identityRevealable: input.isAnonymous && a.cls.settings.revealAnonymousToStaff,
         isAiGenerated: false,
         aiRunId: null,
         approvedBy: null,
@@ -193,6 +194,7 @@ export default async function postRoutes(app: FastifyInstance) {
         authorName: input.isAnonymous ? 'Ẩn danh' : me.displayName,
         authorRole,
         isAnonymous: input.isAnonymous,
+        identityRevealable: input.isAnonymous && a.cls.settings.revealAnonymousToStaff,
         isAiGenerated: false,
         aiRunId: null,
         approvedBy: null,
@@ -395,8 +397,9 @@ export default async function postRoutes(app: FastifyInstance) {
     ]);
     if (!post.exists || !author.exists) throw notFound();
     const pd = post.data() as PostDoc;
-    if (pd.isAnonymous && !a.cls.settings.revealAnonymousToStaff) {
-      throw forbidden('Chính sách lớp không cho phép xem danh tính bài ẩn danh');
+    // Only posts written while the policy was on (and announced to the author) can be revealed.
+    if (pd.isAnonymous && !(pd.identityRevealable && a.cls.settings.revealAnonymousToStaff)) {
+      throw forbidden('Chính sách lớp không cho phép xem danh tính bài ẩn danh này');
     }
     const u = (await C.user((author.data() as PostAuthorDoc).authorUid).get()).data() as UserDoc | undefined;
     if (pd.isAnonymous) await audit(req, 'post.reveal_author', 'post', p.postId, { classId: p.classId });
@@ -437,6 +440,9 @@ async function setVisibility(p: Params, a: ClassAccess, me: UserDoc, status: 'vi
       }
     }
     if (post.moderationStatus === status) return;
+    if (!byAuthor && status === 'visible' && (post as PostDoc & { deletedByAuthor?: boolean }).deletedByAuthor) {
+      throw conflict('Bài đã được tác giả xóa, không thể hiện lại');
+    }
     const sign = status === 'hidden' ? -1 : 1;
     const stats: Record<string, number> = { [statKey(post.type)]: sign };
     const studentDelta: Record<string, number> = { [studentKey(post.type)]: sign };

@@ -115,7 +115,10 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     const postSnaps = authors.length
       ? await db.getAll(...authors.map((x) => C.posts(x.classId, x.sessionId).doc(x.postId)))
       : [];
-    const posts = postSnaps.filter((s) => s.exists).map((s) => s.data() as PostDoc);
+    // Staff never see which anonymous posts belong to the student unless the post is revealable.
+    const viewerIsStudent = uid === me.uid;
+    const canSeeAnon = (p: PostDoc) => viewerIsStudent || (p.identityRevealable && a.cls.settings.revealAnonymousToStaff);
+    const posts = postSnaps.filter((s) => s.exists).map((s) => s.data() as PostDoc).filter((p) => !p.isAnonymous || canSeeAnon(p));
     posts.sort((x, y) => (toMillis(y.createdAt) ?? 0) - (toMillis(x.createdAt) ?? 0));
     const metrics = (metricsSnap.data() as StudentClassMetricsDoc | undefined) ?? null;
     const m = metrics ?? ({} as Partial<StudentClassMetricsDoc>);
@@ -129,6 +132,7 @@ export default async function analyticsRoutes(app: FastifyInstance) {
         activitiesCompleted: m.activitiesCompleted ?? 0,
         quizzesAnswered: m.quizzesAnswered ?? 0,
         quizCorrect: m.quizCorrect ?? 0,
+        reactions: m.reactions ?? 0,
       },
       { sessionsHeld: stats?.sessionsHeld ?? 0, activitiesOpened: stats?.activityCount ?? 0 },
     );
@@ -233,6 +237,7 @@ export default async function analyticsRoutes(app: FastifyInstance) {
               activitiesCompleted: x.activitiesCompleted ?? 0,
               quizzesAnswered: x.quizzesAnswered ?? 0,
               quizCorrect: x.quizCorrect ?? 0,
+              reactions: x.reactions ?? 0,
             },
             { sessionsHeld: st?.sessionsHeld ?? 0, activitiesOpened: st?.activityCount ?? 0 },
           ),

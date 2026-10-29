@@ -27,6 +27,7 @@ import { Avatar } from '@/components/ui/misc';
 import { api, errorMessage } from '@/lib/api';
 import { useMe } from '@/lib/auth';
 import { useOnceDoc } from '@/lib/firestore';
+import { isMyPost } from '@/lib/myPosts';
 import { cn, timeAgo, toDate } from '@/lib/utils';
 import { sessionPath } from './hooks';
 
@@ -84,7 +85,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [author, setAuthor] = useState<{ displayName: string; studentId: string | null } | null>(null);
 
-  const ownPost = isOwn ?? post.authorId === me.uid;
+  const ownPost = isOwn ?? (post.authorId === me.uid || (post.isAnonymous && isMyPost(post.postId)));
   const withinWindow = Date.now() - (toDate(post.createdAt)?.getTime() ?? 0) < editWindowMinutes * 60000;
   const hidden = post.moderationStatus === 'hidden';
   const isQuestion = post.type === 'question';
@@ -235,7 +236,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
                     <Sparkles className="h-4 w-4" /> AI đề xuất trả lời
                   </MenuItem>
                 )}
-                {post.isAnonymous && revealAllowed && (
+                {post.isAnonymous && revealAllowed && post.identityRevealable && (
                   <MenuItem onSelect={reveal}>
                     <UserSearch className="h-4 w-4" /> Xem danh tính
                   </MenuItem>
@@ -326,7 +327,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
             ))}
           </div>
         )}
-        {canAskAiAsStudent && isQuestion && onAskAi && (
+        {canAskAiAsStudent && ownPost && isQuestion && onAskAi && (
           <Button size="sm" variant="ghost" className="ml-auto text-violet-700" onClick={() => onAskAi(post)}>
             <Sparkles className="h-4 w-4" /> Hỏi AI
           </Button>

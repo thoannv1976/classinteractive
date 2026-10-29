@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import type { UserDoc, UserRole, UserStatus } from '@classinteract/shared';
-import { ROLE_LABELS, USER_STATUS_LABELS, canAssignRole } from '@classinteract/shared';
+import { ROLE_LABELS, USER_STATUS_LABELS, canAssignRole, canManageAccount } from '@classinteract/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -111,7 +111,7 @@ export function UsersPage() {
                   <Td><Badge tone={u.status === 'active' ? 'success' : 'danger'}>{USER_STATUS_LABELS[u.status]}</Badge>{u.mustChangePassword && <Badge tone="warning" className="ml-1">MK tạm</Badge>}</Td>
                   <Td className="text-xs text-muted">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : '—'}</Td>
                   <Td className="text-right">
-                    {u.uid !== me.uid && (
+                    {u.uid !== me.uid && canManageAccount(me.role, u.role) && (
                       <Menu trigger={<Button size="icon-sm" variant="ghost" aria-label="Thao tác"><MoreHorizontal className="h-4 w-4" /></Button>}>
                         {u.status === 'active' ? (
                           <MenuItem danger onSelect={() => setConfirm({ u, kind: 'disable' })}><Lock className="h-4 w-4" /> Khóa tài khoản</MenuItem>

@@ -1,6 +1,7 @@
 {
   "name": "classinteract-ai",
   "private": true,
+  "type": "module",
   "version": "1.0.0",
   "description": "ClassInteract AI – Smart Classroom Engagement & Analytics Platform",
   "packageManager": "pnpm@10.28.0",

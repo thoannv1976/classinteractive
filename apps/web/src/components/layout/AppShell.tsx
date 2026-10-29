@@ -84,7 +84,7 @@ export function useUnreadCount() {
 
 function SidebarClasses() {
   const me = useMe();
-  const { data } = useApi<{ items: ClassDoc[] }>('/classes');
+  const { data } = useApi<{ items: ClassDoc[] }>(me.role === 'student' ? '/classes' : '/classes?all=false');
   const items = (data?.items ?? []).filter((c) => c.status !== 'archived').slice(0, 12);
   if (!items.length) return null;
   const base = me.role === 'student' ? '/classes' : '/teach/classes';

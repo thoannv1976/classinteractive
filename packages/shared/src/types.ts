@@ -192,6 +192,8 @@ export interface PostDoc {
   authorName: string;
   authorRole: AuthorRole;
   isAnonymous: boolean;
+  /** Anonymous post written while the class allowed staff to see identities (policy shown to the author). */
+  identityRevealable?: boolean;
   isAiGenerated: boolean;
   aiRunId: string | null;
   approvedBy: string | null;

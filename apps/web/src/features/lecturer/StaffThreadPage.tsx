@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/misc';
 import { useLiveDoc } from '@/lib/firestore';
 import { useApi } from '@/lib/query';
 import { sessionLabel } from '../common/SessionStatus';
+import { acceptsPosts } from '../student/LiveSessionPage';
 
 export function StaffThreadPage() {
   const { classId = '', sessionId = '', postId = '' } = useParams();
@@ -26,8 +27,8 @@ export function StaffThreadPage() {
         sessionId={sessionId}
         postId={postId}
         staff
-        canPost={s.status !== 'archived' && s.status !== 'draft'}
-        disabledReason="Buổi học chưa bắt đầu"
+        canPost={acceptsPosts(s).ok}
+        disabledReason={acceptsPosts(s).reason}
         onAskAi={meta.data.class.settings.aiEnabled ? setAiPost : undefined}
       />
       <AiDraftDialog open={!!aiPost} onOpenChange={(v) => !v && setAiPost(null)} classId={classId} sessionId={sessionId} post={aiPost} />

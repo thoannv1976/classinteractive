@@ -125,8 +125,8 @@ export function assertSessionAccepts(s: SessionDoc, kind: 'join' | 'post' | 'rep
   }
   if (s.status === 'closed') {
     const until = toMillis(s.lateRepliesUntil);
-    if (until && until > Date.now() && (kind === 'reply' || kind === 'post' || kind === 'join')) return;
-    throw new AppError(409, 'SESSION_CLOSED', 'Buổi học đã kết thúc');
+    if (until && until > Date.now() && (kind === 'reply' || kind === 'join')) return;
+    throw new AppError(409, 'SESSION_CLOSED', until && until > Date.now() ? 'Buổi học đã kết thúc, chỉ nhận trả lời bổ sung' : 'Buổi học đã kết thúc');
   }
   throw new AppError(409, 'SESSION_NOT_OPEN', 'Buổi học chưa bắt đầu');
 }

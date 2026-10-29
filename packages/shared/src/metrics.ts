@@ -14,6 +14,8 @@ export interface ParticipationCounts {
   activitiesCompleted: number;
   quizzesAnswered: number;
   quizCorrect: number;
+  /** One-tap reactions/votes (counted once per post). */
+  reactions?: number;
 }
 
 /**
@@ -24,7 +26,8 @@ export function deriveParticipation(
   c: ParticipationCounts,
   opportunities: { sessionsHeld: number; activitiesOpened: number },
 ) {
-  const interactions = c.questions + c.answers + c.comments + c.reflections + c.activitiesCompleted;
+  // Same definition everywhere (tables, heatmap, exports): posts + activities + reactions.
+  const interactions = c.questions + c.answers + c.comments + c.reflections + c.activitiesCompleted + (c.reactions ?? 0);
   return {
     interactions,
     attendanceRate: safeRate(c.sessionsJoined, opportunities.sessionsHeld),
