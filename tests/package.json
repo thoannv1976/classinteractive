@@ -1,0 +1,17 @@
+{
+  "name": "@classinteract/tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:rules": "vitest run --dir rules",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@playwright/test": "1.63.0",
+    "firebase": "^12.19.0",
+    "vitest": "^3.2.7",
+    "typescript": "~5.9.3"
+  }
+}

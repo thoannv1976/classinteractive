@@ -42,6 +42,30 @@ async function allocateJoinCode(tx: FirebaseFirestore.Transaction) {
 }
 
 export default async function sessionRoutes(app: FastifyInstance) {
+  /** Sessions currently running in the caller's classes (student home, "Buổi học" tab). */
+  app.get('/me/live-sessions', async (req) => {
+    const me = currentUser(req);
+    const ids = new Set<string>();
+    const m = await db.collectionGroup('members').where('uid', '==', me.uid).where('status', '==', 'active').get();
+    m.docs.forEach((d) => ids.add((d.data() as MemberDoc).classId));
+    if (me.role !== 'student') {
+      const t = await C.classes().where('lecturerIds', 'array-contains', me.uid).get();
+      t.docs.forEach((d) => ids.add(d.id));
+    }
+    const classIds = [...ids];
+    if (!classIds.length) return { items: [] };
+    const [classes, live] = await Promise.all([
+      db.getAll(...classIds.map((id) => C.class(id))),
+      Promise.all(classIds.map((id) => C.sessions(id).where('status', 'in', ['open', 'paused']).get())),
+    ]);
+    const items = classIds.flatMap((id, i) => {
+      const cls = classes[i]?.data();
+      if (!cls || cls.status !== 'active') return [];
+      return live[i]!.docs.map((d) => ({ session: d.data(), class: { classId: id, classCode: cls.classCode, name: cls.name, courseName: cls.courseName } }));
+    });
+    return { items: serialize(items) };
+  });
+
   app.get('/classes/:classId/sessions', async (req) => {
     const { classId } = req.params as { classId: string };
     const a = await loadClassAccess(currentUser(req), classId);

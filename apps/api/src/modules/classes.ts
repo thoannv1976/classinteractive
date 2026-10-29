@@ -34,6 +34,7 @@ import { badRequest, conflict, forbidden, notFound, parse } from '../lib/errors'
 import { directoryKey } from '../lib/ids';
 import { C } from '../lib/paths';
 import { serialize } from '../lib/time';
+import { parseRosterFile } from '../lib/rosterFile';
 import { notify } from './notifications';
 
 export const DEFAULT_CLASS_SETTINGS: ClassSettings = {
@@ -311,6 +312,15 @@ export default async function classRoutes(app: FastifyInstance) {
     const result = valid.length ? await importRoster(classId, valid, me.uid) : null;
     await audit(req, 'class.import_roster', 'class', classId, { valid: valid.length, errors: errors.length });
     return { result, errors };
+  });
+
+  /** Parse an uploaded CSV/XLSX student list and return rows for preview (nothing is saved). */
+  app.post('/roster/parse', { preHandler: requireStaff }, async (req) => {
+    const { filename, contentBase64 } = parse(
+      z.object({ filename: z.string().min(1).max(200), contentBase64: z.string().min(1).max(2_700_000) }),
+      req.body,
+    );
+    return parseRosterFile(filename, contentBase64);
   });
 
   app.delete('/classes/:classId/roster/:studentId', async (req) => {

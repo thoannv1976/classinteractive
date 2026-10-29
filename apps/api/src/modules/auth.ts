@@ -23,7 +23,10 @@ import { serialize } from '../lib/time';
 const invalidCredentials = () =>
   new AppError(401, 'INVALID_CREDENTIALS', 'Mã sinh viên/email hoặc mật khẩu không đúng');
 
-const strictLimit = { rateLimit: { max: 20, timeWindow: '1 minute' } };
+// Per IP. Generous because a classroom shares one public IP; brute force is stopped by the
+// per-account lockout (LIMITS.loginMaxFailures).
+const strictLimit = { rateLimit: { max: 300, timeWindow: '1 minute' } };
+const passwordChangeLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } };
 
 export default async function authRoutes(app: FastifyInstance) {
   /** Student self-registration: student ID must be in a list imported by a lecturer/admin. */
@@ -165,7 +168,7 @@ export default async function authRoutes(app: FastifyInstance) {
   app.get('/auth/me', { preHandler: authenticate }, async (req) => ({ user: serialize(currentUser(req)) }));
 
   /** Change own password. Other sessions are signed out; a fresh token is returned for this device. */
-  app.post('/auth/change-password', { preHandler: authenticate, config: strictLimit }, async (req) => {
+  app.post('/auth/change-password', { preHandler: authenticate, config: passwordChangeLimit }, async (req) => {
     const u = currentUser(req);
     const { currentPassword, newPassword } = parse(changePasswordSchema, req.body);
     const cred = (await C.credentials(u.uid).get()).data();

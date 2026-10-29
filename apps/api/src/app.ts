@@ -2,6 +2,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
+import { createHash } from 'node:crypto';
 import { config } from './config';
 import { authenticate } from './lib/auth';
 import { errorHandler } from './lib/errors';
@@ -37,7 +38,17 @@ export async function buildApp() {
   app.setErrorHandler(errorHandler);
   await app.register(helmet, { contentSecurityPolicy: false });
   if (config.corsOrigins.length) await app.register(cors, { origin: config.corsOrigins, credentials: false });
-  await app.register(rateLimit, { global: true, max: 600, timeWindow: '1 minute' });
+  // Signed-in requests are limited per user (token), not per IP: a whole class often shares one
+  // campus NAT address. Anonymous requests (login/register) fall back to the client IP.
+  await app.register(rateLimit, {
+    global: true,
+    max: 600,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => {
+      const h = req.headers.authorization;
+      return h ? 'u:' + createHash('sha256').update(h).digest('base64url').slice(0, 24) : 'ip:' + req.ip;
+    },
+  });
 
   app.get('/healthz', async () => ({ ok: true }));
 
