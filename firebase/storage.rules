@@ -1,0 +1,9 @@
+rules_version = '2';
+// File attachments are not enabled in Phase 1. Deny all direct access.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// ClassInteract AI – Firestore Security Rules
+// Principle: deny by default. Clients may only READ data they are entitled to (for realtime
+// listeners). Every write goes through the backend API (Admin SDK), which validates input,
+// checks permissions and keeps counters consistent.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function me() { return get(userPath()).data; }
+    function active() { return signedIn() && exists(userPath()) && me().status == 'active'; }
+    function isAdmin() { return active() && me().role in ['admin', 'superadmin']; }
+
+    function classData(classId) { return get(/databases/$(database)/documents/classes/$(classId)).data; }
+    function memberPath(classId) { return /databases/$(database)/documents/classes/$(classId)/members/$(request.auth.uid); }
+    function isLecturer(classId) { return active() && request.auth.uid in classData(classId).lecturerIds; }
+    function isMember(classId) {
+      return active() && exists(memberPath(classId)) && get(memberPath(classId)).data.status == 'active';
+    }
+    function isTA(classId) { return isMember(classId) && get(memberPath(classId)).data.role == 'ta'; }
+    function canModerate(classId) { return isAdmin() || isLecturer(classId) || isTA(classId); }
+    function canView(classId) { return isAdmin() || isLecturer(classId) || isMember(classId); }
+
+    // Deny everything not explicitly allowed (credentials, userLogins, studentDirectory,
+    // joinCodes, aiRuns, aiUsage, systemSettings, postAuthor, activity keys, grading ...).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{uid} {
+      // Own profile is readable even when disabled, so the client can show the status.
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+
+      match /notifications/{notificationId} {
+        allow read: if active() && request.auth.uid == uid;
+      }
+    }
+
+    match /classes/{classId} {
+      allow read: if canView(classId);
+
+      match /members/{memberUid} {
+        allow read: if canModerate(classId) || (active() && request.auth.uid == memberUid);
+      }
+      match /enrollmentRequests/{requestUid} {
+        allow read: if canModerate(classId) || (active() && request.auth.uid == requestUid);
+      }
+      match /stats/{doc} {
+        allow read: if canModerate(classId);
+      }
+      match /studentMetrics/{studentUid} {
+        allow read: if canModerate(classId) || (isMember(classId) && request.auth.uid == studentUid);
+      }
+      match /studentSessionMetrics/{metricId} {
+        allow read: if canModerate(classId) || (isMember(classId) && resource.data.uid == request.auth.uid);
+      }
+
+      match /sessions/{sessionId} {
+        allow read: if canView(classId);
+
+        match /stats/{doc} {
+          allow read: if canView(classId);
+        }
+        match /attendance/{attendeeUid} {
+          allow read: if canModerate(classId) || (active() && request.auth.uid == attendeeUid);
+        }
+
+        match /posts/{postId} {
+          // Students only see visible posts (queries must filter moderationStatus == 'visible').
+          allow read: if canModerate(classId)
+            || (canView(classId) && resource.data.moderationStatus == 'visible');
+
+          match /reactions/{reactorUid} {
+            allow read: if active() && request.auth.uid == reactorUid && canView(classId);
+          }
+        }
+
+        match /activities/{activityId} {
+          function activity() {
+            return get(/databases/$(database)/documents/classes/$(classId)/sessions/$(sessionId)/activities/$(activityId)).data;
+          }
+          // Drafts are only visible to class staff (queries must filter status in ['open','closed']).
+          allow read: if canModerate(classId)
+            || (canView(classId) && resource.data.status in ['open', 'closed']);
+
+          match /results/{doc} {
+            allow read: if canModerate(classId)
+              || (canView(classId) && activity().showResults == true && activity().status in ['open', 'closed']);
+          }
+          match /submissions/{submitterUid} {
+            allow read: if canModerate(classId) || (isMember(classId) && request.auth.uid == submitterUid);
+          }
+        }
+      }
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@classinteract/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "node build.mjs",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --dir src --exclude '**/*.int.test.ts'",
+    "test:integration": "vitest run --config vitest.int.config.ts",
+    "seed": "tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.137.0",
+    "@classinteract/shared": "workspace:*",
+    "@fastify/cors": "^11.3.1",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^11.2.1",
+    "@google/genai": "^1.52.0",
+    "@node-rs/argon2": "^2.2.2",
+    "exceljs": "^4.4.0",
+    "fastify": "^5.12.7",
+    "firebase-admin": "^13.10.0",
+    "openai": "^6.49.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "esbuild": "^0.25.11",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
