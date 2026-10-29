@@ -8,7 +8,7 @@ COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY tests/package.json tests/
-RUN pnpm install --frozen-lockfile --filter @classinteract/api... --ignore-scripts=false
+RUN pnpm install --frozen-lockfile --filter @classinteract/api...
 COPY packages/shared packages/shared
 COPY apps/api apps/api
 RUN pnpm --filter @classinteract/api build \

@@ -46,8 +46,13 @@ gcloud services enable \
   run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com \
   firestore.googleapis.com secretmanager.googleapis.com iamcredentials.googleapis.com \
   identitytoolkit.googleapis.com firebase.googleapis.com firebasehosting.googleapis.com \
-  firebaserules.googleapis.com logging.googleapis.com monitoring.googleapis.com
+  firebaserules.googleapis.com logging.googleapis.com monitoring.googleapis.com \
+  cloudbilling.googleapis.com
 ok "Đã bật API"
+if [ "$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)' 2>/dev/null)" != "True" ]; then
+  die "Project chưa gắn tài khoản thanh toán (billing). Mở https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT_ID, gắn billing rồi chạy lại."
+fi
+ok "Billing đã bật"
 
 # -----------------------------------------------------------------------------
 bold "2/9 Cài công cụ (pnpm, firebase-tools)"
@@ -63,7 +68,7 @@ ok "Công cụ sẵn sàng"
 
 # -----------------------------------------------------------------------------
 bold "3/9 Liên kết Firebase với project"
-if $FIREBASE projects:list --json | grep -q "\"projectId\": *\"$PROJECT_ID\""; then
+if [ "$($FIREBASE projects:list --json | node infrastructure/fbjson.cjs "r.some(p=>p.projectId==='$PROJECT_ID')")" = "true" ]; then
   ok "Project đã có Firebase"
 else
   $FIREBASE projects:addfirebase "$PROJECT_ID"
@@ -151,33 +156,44 @@ fi
 # -----------------------------------------------------------------------------
 if [ "${SKIP_WEB:-0}" != "1" ]; then
   bold "8/9 Build web và deploy Firebase Hosting + Firestore rules/indexes"
-  APP_ID=$($FIREBASE apps:list WEB --project "$PROJECT_ID" --json | node -e '
-    let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s).result||[];const a=r.find(x=>x.displayName==="ClassInteract Web")||r[0];console.log(a?a.appId:"")})')
+  FBJSON="node infrastructure/fbjson.cjs"
+  APP_ID=$($FIREBASE apps:list WEB --project "$PROJECT_ID" --json | $FBJSON '(r.find(x=>x.displayName==="ClassInteract Web")||r[0]||{}).appId')
   if [ -z "$APP_ID" ]; then
-    APP_ID=$($FIREBASE apps:create WEB "ClassInteract Web" --project "$PROJECT_ID" --json | node -e '
-      let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).result.appId))')
+    APP_ID=$($FIREBASE apps:create WEB "ClassInteract Web" --project "$PROJECT_ID" --json | $FBJSON 'r.appId')
   fi
-  $FIREBASE apps:sdkconfig WEB "$APP_ID" --project "$PROJECT_ID" --json | node -e '
-    let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-      const r=JSON.parse(s).result;let c=r.sdkConfig;
-      if(!c){const m=/\{[\s\S]*\}/.exec(r.fileContents||"");c=m?Function("return "+m[0])():{};}
-      const out=["VITE_FIREBASE_API_KEY="+c.apiKey,"VITE_FIREBASE_AUTH_DOMAIN="+c.authDomain,"VITE_FIREBASE_PROJECT_ID="+c.projectId,"VITE_FIREBASE_APP_ID="+c.appId,"VITE_USE_EMULATORS=false",""].join("\n");
-      require("fs").writeFileSync("apps/web/.env.production",out);})'
+  [ -n "$APP_ID" ] || die "Không tạo được Firebase Web App"
+  CFG=$($FIREBASE apps:sdkconfig WEB "$APP_ID" --project "$PROJECT_ID" --json | $FBJSON 'r.sdkConfig')
+  [ -n "$CFG" ] || die "Không lấy được cấu hình Firebase Web App"
+  node -e '
+    const c=JSON.parse(process.argv[1]);
+    const out=["VITE_FIREBASE_API_KEY="+c.apiKey,"VITE_FIREBASE_AUTH_DOMAIN="+c.authDomain,"VITE_FIREBASE_PROJECT_ID="+c.projectId,"VITE_FIREBASE_APP_ID="+c.appId,"VITE_USE_EMULATORS=false",""].join("\n");
+    require("fs").writeFileSync("apps/web/.env.production",out);' "$CFG"
   ok "Cấu hình web (public) đã ghi vào apps/web/.env.production"
   pnpm --filter @classinteract/web build
-  # Point the Hosting rewrite at the chosen region
+  # Hosting site (tên site là duy nhất toàn cầu; mặc định trùng project ID)
+  SITE=$($FIREBASE hosting:sites:list --project "$PROJECT_ID" --json 2>/dev/null | $FBJSON '((r.sites||[]).find(x=>x.type==="DEFAULT_SITE")||(r.sites||[])[0]||{name:""}).name.split("/").pop()')
+  if [ -z "$SITE" ]; then
+    for CANDIDATE in "$PROJECT_ID" "$PROJECT_ID-app" "$PROJECT_ID-$PROJECT_NUMBER"; do
+      if $FIREBASE hosting:sites:create "$CANDIDATE" --project "$PROJECT_ID" --non-interactive >/dev/null 2>&1; then SITE="$CANDIDATE"; break; fi
+    done
+  fi
+  [ -n "$SITE" ] || die "Không tạo được Firebase Hosting site. Mở Firebase Console → Hosting → Get started, rồi chạy lại."
+  ok "Hosting site: $SITE"
+  # Point Hosting at the site and the Cloud Run region
   node -e '
     const f=require("fs");const j=JSON.parse(f.readFileSync("firebase.json","utf8"));
+    j.hosting.site=process.argv[2];
     for(const r of j.hosting.rewrites) if(r.run){r.run.region=process.argv[1];}
-    f.writeFileSync("firebase.json",JSON.stringify(j,null,2)+"\n");' "$REGION"
+    f.writeFileSync("firebase.json",JSON.stringify(j,null,2)+"\n");' "$REGION" "$SITE"
   $FIREBASE deploy --project "$PROJECT_ID" --only hosting,firestore:rules,firestore:indexes --non-interactive
-  ok "Web: https://${PROJECT_ID}.web.app"
+  ok "Web: https://${SITE}.web.app"
   warn "Firestore indexes có thể mất vài phút để xây dựng lần đầu."
 fi
 
 # -----------------------------------------------------------------------------
 bold "9/9 Tài khoản quản trị đầu tiên"
-BASE="https://${PROJECT_ID}.web.app/api/v1"
+SITE="${SITE:-$PROJECT_ID}"
+BASE="https://${SITE}.web.app/api/v1"
 for i in $(seq 1 20); do
   STATUS_JSON=$(curl -s "$BASE/setup/status" || true)
   echo "$STATUS_JSON" | grep -q initialized && break
@@ -198,6 +214,6 @@ else
 fi
 
 bold "Hoàn tất"
-echo "  Ứng dụng:   https://${PROJECT_ID}.web.app"
-echo "  Sinh viên đăng ký tại: https://${PROJECT_ID}.web.app/register (mã SV phải có trong danh sách lớp)"
+echo "  Ứng dụng:   https://${SITE}.web.app"
+echo "  Sinh viên đăng ký tại: https://${SITE}.web.app/register (mã SV phải có trong danh sách lớp)"
 echo "  Log API:    gcloud run services logs read $SERVICE --region $REGION"
