@@ -159,8 +159,14 @@ export default async function insightRoutes(app: FastifyInstance) {
   app.post('/classes/:classId/clusters/move', async (req) => {
     const { classId } = req.params as { classId: string };
     await requireClassModerator(currentUser(req), classId);
-    const { item, toClusterId } = parse(moveClusterItemSchema, req.body);
-    const all = (await clustersCol(classId).get()).docs.map((d) => d.data() as ClusterDoc);
+    const { item, toClusterId, fromClusterId } = parse(moveClusterItemSchema, req.body);
+    let all = (await clustersCol(classId).get()).docs.map((d) => d.data() as ClusterDoc);
+    // Session groups and whole-class groups are independent views: only touch the same view.
+    const target = all.find((c) => c.clusterId === toClusterId);
+    const source = all.find((c) => c.clusterId === fromClusterId);
+    const view = source ?? target;
+    if (fromClusterId) all = all.filter((c) => c.clusterId === fromClusterId || c.clusterId === toClusterId);
+    else if (view) all = all.filter((c) => c.scope === view.scope && (c.sessionId ?? null) === (view.sessionId ?? null));
     const batch = db.batch();
     for (const c of all) {
       const has = c.items.some((i) => i.postId === item.postId);

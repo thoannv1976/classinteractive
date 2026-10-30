@@ -131,11 +131,12 @@ export default async function topicRoutes(app: FastifyInstance) {
     const me = currentUser(req);
     await requireClassModerator(me, classId);
     const input = parse(updateTopicSchema, req.body);
-    const t = await ensureCatalogTopic(classId, decodeURIComponent(name), 'session', me.uid);
+    const t = await ensureCatalogTopic(classId, name, 'session', me.uid); // Fastify already decoded the param
     let changed = 0;
     if (input.name && input.name !== t.name) {
-      const clash = await topicsCol(classId).where('name', '==', input.name).limit(1).get();
-      if (!clash.empty) throw conflict('Chủ đề này đã tồn tại. Hãy dùng chức năng gộp chủ đề.');
+      const { names } = await classTopicNames(classId);
+      const used = (await loadClassPosts(classId)).some((p) => p.topics?.includes(input.name!));
+      if (names.includes(input.name) || used) throw conflict('Chủ đề này đã tồn tại. Hãy dùng chức năng gộp chủ đề.');
       changed = await rewriteTopics(classId, new Map([[t.name, input.name]]));
     }
     await topicsCol(classId).doc(t.topicId).update({ ...input, updatedAt: now() });
@@ -146,7 +147,7 @@ export default async function topicRoutes(app: FastifyInstance) {
   app.delete('/classes/:classId/topics/:name', async (req) => {
     const { classId, name } = req.params as { classId: string; name: string };
     await requireClassModerator(currentUser(req), classId);
-    const topic = decodeURIComponent(name);
+    const topic = name;
     const changed = await rewriteTopics(classId, new Map([[topic, null]]));
     const docs = await topicsCol(classId).where('name', '==', topic).get();
     await Promise.all(docs.docs.map((d) => d.ref.delete()));

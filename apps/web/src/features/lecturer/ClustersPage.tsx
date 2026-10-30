@@ -179,7 +179,7 @@ export function ClustersPage() {
                 run(() => api.patch(`/classes/${classId}/clusters/${c.clusterId}`, { status }), status === 'resolved' ? t('Đã đánh dấu nhóm là đã giải quyết') : t('Đã mở lại nhóm'))
               }
               onMove={(item) => setMoving({ item, from: c })}
-              onRemove={(item) => run(() => api.post(`/classes/${classId}/clusters/move`, { item, toClusterId: null }), t('Đã bỏ câu hỏi khỏi nhóm'))}
+              onRemove={(item) => run(() => api.post(`/classes/${classId}/clusters/move`, { item, toClusterId: null, fromClusterId: c.clusterId }), t('Đã bỏ câu hỏi khỏi nhóm'))}
             />
           ))}
         </div>
@@ -516,7 +516,7 @@ function MoveItemDialog({
     if (!move || !target) return;
     setSaving(true);
     try {
-      await api.post(`/classes/${classId}/clusters/move`, { item: move.item, toClusterId: target });
+      await api.post(`/classes/${classId}/clusters/move`, { item: move.item, toClusterId: target, fromClusterId: move.from.clusterId });
       toast.success(t('Đã chuyển câu hỏi sang nhóm khác'));
       await onMoved();
       onClose();

@@ -318,7 +318,12 @@ export const updateClusterSchema = z.object({
   status: z.enum(['open', 'resolved']).optional(),
 });
 export const mergeClustersSchema = z.object({ ids: z.array(z.string().max(64)).min(2).max(20), name: requiredText(200).optional() });
-export const moveClusterItemSchema = z.object({ item: postRef, toClusterId: z.string().max(64).nullable() });
+export const moveClusterItemSchema = z.object({
+  item: postRef,
+  toClusterId: z.string().max(64).nullable(),
+  /** Only this group loses the question (groups of other scopes are not touched). */
+  fromClusterId: z.string().max(64).optional(),
+});
 
 const summaryItem = z.object({ text: requiredText(1500), refs: z.array(z.string().max(64)).max(30).default([]) });
 export const summarySectionsSchema = z.object({
