@@ -11,6 +11,11 @@ import { errorHandler } from './lib/errors';
 import activityRoutes from './modules/activities';
 import adminRoutes from './modules/admin';
 import aiRoutes from './modules/ai/routes';
+import insightRoutes from './modules/ai/insightRoutes';
+import './modules/ai/jobs';
+import { runJob, verifyTaskRequest } from './lib/jobs';
+import topicRoutes from './modules/topics';
+import scoreRoutes from './modules/scores';
 import analyticsRoutes from './modules/analytics';
 import authRoutes from './modules/auth';
 import classRoutes from './modules/classes';
@@ -54,6 +59,14 @@ export async function buildApp() {
 
   app.get('/healthz', async () => ({ ok: true }));
 
+  // Cloud Tasks → background AI jobs (OIDC token of our service account is verified).
+  app.post('/internal/jobs/:classId/:jobId', { config: { rateLimit: false } }, async (req, reply) => {
+    if (!(await verifyTaskRequest(req.headers.authorization))) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+    const { classId, jobId } = req.params as { classId: string; jobId: string };
+    await runJob(classId, jobId);
+    return { ok: true };
+  });
+
   await app.register(
     async (api) => {
       // Public routes
@@ -71,6 +84,9 @@ export async function buildApp() {
         await priv.register(analyticsRoutes);
         await priv.register(exportRoutes);
         await priv.register(aiRoutes);
+        await priv.register(insightRoutes);
+        await priv.register(topicRoutes);
+        await priv.register(scoreRoutes);
         await priv.register(notificationRoutes);
         await priv.register(adminRoutes);
       });

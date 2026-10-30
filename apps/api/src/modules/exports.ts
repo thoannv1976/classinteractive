@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import ExcelJS from 'exceljs';
-import type { ActivityDoc, MemberDoc, SubmissionDoc, UserDoc } from '@classinteract/shared';
+import type { ActivityDoc, ClassDoc, ClusterDoc, MemberDoc, SubmissionDoc, UserDoc } from '@classinteract/shared';
 import {
   ACTIVITY_STATUS_LABELS,
   ACTIVITY_TYPE_LABELS,
@@ -32,6 +32,7 @@ import {
 import { parse } from '../lib/errors';
 import { requestLang } from '../lib/lang';
 import { C } from '../lib/paths';
+import { computeClassScores } from '../lib/scores';
 import { toMillis } from '../lib/time';
 
 type Cell = string | number | null;
@@ -42,7 +43,7 @@ interface Sheet {
   rows: Cell[][];
 }
 
-const DATASETS = ['students', 'sessions', 'questions', 'answers', 'topics', 'activities', 'submissions'] as const;
+const DATASETS = ['students', 'scores', 'sessions', 'questions', 'answers', 'topics', 'clusters', 'activities', 'submissions'] as const;
 
 const fmtTime = (v: unknown, lang: Lang = 'vi') => {
   const ms = toMillis(v);
@@ -51,7 +52,8 @@ const fmtTime = (v: unknown, lang: Lang = 'vi') => {
 };
 const pct = (r: number | null) => (r === null ? '' : formatPercent(r, 1));
 
-async function buildSheets(classId: string, revealAnonymous: boolean, lang: Lang): Promise<Sheet[]> {
+async function buildSheets(cls: ClassDoc, revealAnonymous: boolean, lang: Lang): Promise<Sheet[]> {
+  const classId = cls.classId;
   const T = (text: string, params?: Params) => translate(lang, text, params);
   const [stats, sessions, students, posts] = await Promise.all([
     loadClassStats(classId),
@@ -128,6 +130,42 @@ async function buildSheets(classId: string, revealAnonymous: boolean, lang: Lang
       pct(r.consistency),
       r.interactions,
       fmtTime(r.lastActiveAt, lang),
+    ]),
+  });
+
+  // Engagement scores: live reference values + last confirmed snapshot
+  const [scores, lastSnap] = await Promise.all([
+    computeClassScores(cls),
+    C.class(classId).collection('scoreSnapshots').orderBy('confirmedAt', 'desc').limit(1).get(),
+  ]);
+  const confirmed = new Map<string, number | null>(((lastSnap.docs[0]?.data().rows ?? []) as { uid: string; score: number | null }[]).map((r) => [r.uid, r.score]));
+  const pctv = (v: number | null) => (v === null ? '' : formatPercent(v, 0));
+  sheets.push({
+    key: 'scores',
+    name: 'Engagement Scores',
+    columns: [
+      { header: T('Mã SV'), width: 14 },
+      { header: T('Họ tên'), width: 28 },
+      { header: T('Hoàn thành hoạt động trên lớp') + ` (${scores.config.weights.activities}%)` },
+      { header: T('Trả lời câu hỏi/thảo luận') + ` (${scores.config.weights.answers}%)` },
+      { header: T('Đặt câu hỏi liên quan') + ` (${scores.config.weights.questions}%)` },
+      { header: T('Đóng góp phản hồi có ích') + ` (${scores.config.weights.helpful}%)` },
+      { header: T('Phiếu cuối buổi') + ` (${scores.config.weights.exitTickets}%)` },
+      { header: T('Điều chỉnh của giảng viên') },
+      { header: T('Điểm tham khảo hiện tại') },
+      { header: T('Điểm đã xác nhận (lần gần nhất)') },
+    ],
+    rows: scores.rows.map((r) => [
+      r.studentId,
+      r.displayName,
+      pctv(r.components.activities.value),
+      pctv(r.components.answers.value),
+      pctv(r.components.questions.value),
+      pctv(r.components.helpful.value),
+      pctv(r.components.exitTickets.value),
+      r.adjustment || '',
+      r.score,
+      confirmed.has(r.uid) ? (confirmed.get(r.uid) ?? '') : '',
     ]),
   });
 
@@ -246,6 +284,35 @@ async function buildSheets(classId: string, revealAnonymous: boolean, lang: Lang
     rows: aggregateTopics(posts).map((t) => [t.topic === UNTAGGED ? T(UNTAGGED) : t.topic, t.questions, t.answers, t.comments, t.openQuestions, t.participants, t.sessions]),
   });
 
+  const clusterDocs = (await C.class(classId).collection('clusters').get()).docs.map((d) => d.data() as ClusterDoc).sort((a, b) => b.interest - a.interest);
+  const postById = new Map(posts.map((p) => [p.postId, p]));
+  sheets.push({
+    key: 'clusters',
+    name: 'Question Clusters',
+    columns: [
+      { header: T('Nhóm vấn đề'), width: 36 },
+      { header: T('Mô tả'), width: 50 },
+      { header: T('Phạm vi') },
+      { header: T('Số câu hỏi') },
+      { header: T('SV tham gia') },
+      { header: T('Số buổi xuất hiện') },
+      { header: T('Mức độ quan tâm') },
+      { header: T('Chưa giải đáp') },
+      { header: T('Các câu hỏi'), width: 80 },
+    ],
+    rows: clusterDocs.map((c) => [
+      c.name,
+      c.description,
+      c.scope === 'class' ? T('Cả lớp') : (sessionLabel.get(c.sessionId ?? '') ?? ''),
+      c.questionCount,
+      c.studentCount,
+      c.sessionCount,
+      c.interest,
+      c.openCount,
+      c.items.map((i) => postById.get(i.postId)?.content.slice(0, 200) ?? '').filter(Boolean).join(' | '),
+    ]),
+  });
+
   const actRows: Cell[][] = [];
   const subRows: Cell[][] = [];
   for (const s of sessions) {
@@ -333,7 +400,7 @@ export default async function exportRoutes(app: FastifyInstance) {
       z.object({ format: z.enum(['xlsx', 'csv', 'json']).default('xlsx'), dataset: z.enum(DATASETS).default('students') }),
       req.query,
     );
-    const sheets = await buildSheets(classId, a.cls.settings.revealAnonymousToStaff, requestLang(req));
+    const sheets = await buildSheets(a.cls, a.cls.settings.revealAnonymousToStaff, requestLang(req));
     const base = `${a.cls.classCode}_${a.cls.semester}`.replace(/[^A-Za-z0-9._-]+/g, '_');
     await audit(req, 'class.export', 'class', classId, { format: q.format, dataset: q.format === 'xlsx' ? 'all' : q.dataset });
 

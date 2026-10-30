@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { MemberDoc, SessionDoc, UserDoc } from '@classinteract/shared';
+import type { ClassDoc, MemberDoc, SessionDoc, UserDoc } from '@classinteract/shared';
 import { createSessionSchema, endSessionSchema, joinByCodeSchema, updateSessionSchema } from '@classinteract/shared';
 import { Timestamp, db, inc, now } from '../firebase';
 import { assertClassWritable, loadClassAccess, requireClassManager } from '../lib/access';
@@ -8,6 +8,9 @@ import { currentUser } from '../lib/auth';
 import { assertSessionAccepts, bumpClassStats, prepareParticipation } from '../lib/counters';
 import { AppError, conflict, notFound, parse } from '../lib/errors';
 import { joinCode } from '../lib/ids';
+import { createJob } from '../lib/jobs';
+import { requestLang } from '../lib/lang';
+import { providerOrder } from './ai/executor';
 import { C } from '../lib/paths';
 import { serialize, toMillis } from '../lib/time';
 import { notify } from './notifications';
@@ -233,7 +236,21 @@ export default async function sessionRoutes(app: FastifyInstance) {
       await batch.commit();
     }
     await audit(req, 'session.end', 'session', sessionId, { classId, lateReplyMinutes });
-    return { ok: true };
+    // Topic classification, question groups and the session summary are prepared automatically.
+    const me = currentUser(req);
+    const cls = (await C.class(classId).get()).data() as ClassDoc;
+    let aiJobs = 0;
+    if (cls.settings.aiEnabled && cls.settings.autoAiOnSessionEnd !== false) {
+      const { settings, order } = await providerOrder(cls, 'summarize');
+      if (settings.enabled && order.length) {
+        const lang = requestLang(req);
+        for (const type of ['classify_topics', 'cluster_questions', 'summarize_session'] as const) {
+          await createJob({ cls, user: me, type, sessionId, lang }).catch(() => undefined);
+          aiJobs++;
+        }
+      }
+    }
+    return { ok: true, aiJobs };
   });
 
   app.post('/classes/:classId/sessions/:sessionId/archive', async (req) => {

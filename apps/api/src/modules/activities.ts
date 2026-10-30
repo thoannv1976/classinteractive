@@ -40,8 +40,10 @@ async function openActivity(p: Params) {
     const first = !act.openedAt;
     tx.update(ref, { status: 'open', ...(first ? { openedAt: now() } : {}), closedAt: null, updatedAt: now() });
     if (first) {
-      bumpSessionStats(tx, p.classId, p.sessionId, { activityCount: 1 });
-      bumpClassStats(tx, p.classId, { activityCount: 1 });
+      // Exit tickets are also counted separately (own component of the engagement score).
+      const delta = { activityCount: 1, exitTicketCount: act.type === 'exit_ticket' ? 1 : 0 };
+      bumpSessionStats(tx, p.classId, p.sessionId, delta);
+      bumpClassStats(tx, p.classId, delta);
     }
     return true;
   });
@@ -67,9 +69,10 @@ export default async function activityRoutes(app: FastifyInstance) {
 
     let options: ActivityOption[] = [];
     if (input.type === 'understanding') options = UNDERSTANDING_OPTIONS.map((o) => ({ ...o }));
+    // exit_ticket: no options – the three standard questions are answered in one submission
     else if (input.type === 'poll' || input.type === 'quiz') options = input.options.map((label, i) => ({ id: `o${i + 1}`, label }));
     const correctOptionIds = input.type === 'quiz' ? [...new Set(input.correctOptionIndexes)].map((i) => `o${i + 1}`) : [];
-    const allowMultiple = input.type === 'understanding' || input.type === 'free_text' ? false : input.allowMultiple || correctOptionIds.length > 1;
+    const allowMultiple = input.type === 'understanding' || input.type === 'free_text' || input.type === 'exit_ticket' ? false : input.allowMultiple || correctOptionIds.length > 1;
 
     const ref = C.activities(classId, sessionId).doc();
     const p = { classId, sessionId, activityId: ref.id };
@@ -185,9 +188,14 @@ export default async function activityRoutes(app: FastifyInstance) {
 
       let optionIds: string[] = [];
       let text = '';
+      let answers: string[] = [];
       if (act.type === 'free_text') {
         text = input.text;
         if (!text) throw badRequest('Hãy nhập câu trả lời');
+      } else if (act.type === 'exit_ticket') {
+        answers = [0, 1, 2].map((i) => (input.answers[i] ?? '').trim());
+        if (!answers.some(Boolean)) throw badRequest('Hãy trả lời ít nhất một câu');
+        text = answers.filter(Boolean).join('\n');
       } else {
         optionIds = [...new Set(input.optionIds)];
         const valid = new Set(act.options.map((o) => o.id));
@@ -196,7 +204,9 @@ export default async function activityRoutes(app: FastifyInstance) {
         if (!act.allowMultiple && optionIds.length > 1) throw badRequest('Chỉ được chọn một phương án');
       }
       const old = subSnap.data() as SubmissionDoc | undefined;
-      if (old && sameSet(old.optionIds, optionIds) && old.text === text) return { ok: true, changed: false };
+      if (old && sameSet(old.optionIds, optionIds) && old.text === text && JSON.stringify(old.answers ?? []) === JSON.stringify(answers)) {
+        return { ok: true, changed: false };
+      }
 
       const part = await prepareParticipation(tx, { classId: p.classId, sessionId: p.sessionId, user: me });
       const resultsUpdate: Record<string, unknown> = { updatedAt: now() };
@@ -222,6 +232,7 @@ export default async function activityRoutes(app: FastifyInstance) {
         displayName: me.displayName,
         optionIds,
         text,
+        answers,
         featured: old?.featured ?? false,
         clientRequestId: input.clientRequestId,
         submittedAt: old?.submittedAt ?? now(),
@@ -231,6 +242,7 @@ export default async function activityRoutes(app: FastifyInstance) {
       if (!old) {
         if (act.type === 'poll' || act.type === 'understanding') extra.pollsAnswered = 1;
         if (act.type === 'quiz') extra.quizzesAnswered = 1;
+        if (act.type === 'exit_ticket') extra.exitTickets = 1;
       }
       part.write(old ? {} : { activitiesCompleted: 1 }, {
         sessionDelta: old ? {} : { submissionCount: 1 },

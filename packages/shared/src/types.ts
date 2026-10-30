@@ -174,6 +174,7 @@ export interface SessionStatsDoc {
   reflectionCount: number;
   openQuestionCount: number;
   activityCount: number;
+  exitTicketCount?: number;
   submissionCount: number;
   reactionCount: number;
   updatedAt: Time;

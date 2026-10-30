@@ -107,6 +107,7 @@ export const NOTIFICATION_TYPES = [
   'enrollment_approved',
   'enrollment_request',
   'ai_answer',
+  'summary_ready',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

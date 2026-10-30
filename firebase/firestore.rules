@@ -56,12 +56,29 @@ service cloud.firestore {
       match /studentSessionMetrics/{metricId} {
         allow read: if canModerate(classId) || (isMember(classId) && resource.data.uid == request.auth.uid);
       }
+      // Phase 2: topic catalog (names are visible to the class), AI jobs, question clusters, insights
+      match /topics/{topicId} {
+        allow read: if canView(classId);
+      }
+      match /aiJobs/{jobId} {
+        allow read: if canModerate(classId);
+      }
+      match /clusters/{clusterId} {
+        allow read: if canModerate(classId);
+      }
+      match /insights/{doc} {
+        allow read: if canModerate(classId);
+      }
 
       match /sessions/{sessionId} {
         allow read: if canView(classId);
 
         match /stats/{doc} {
           allow read: if canView(classId);
+        }
+        // AI session summary: staff always; students only after the lecturer approved and published it
+        match /summary/{doc} {
+          allow read: if canModerate(classId) || (canView(classId) && resource.data.published == true);
         }
         match /attendance/{attendeeUid} {
           allow read: if canModerate(classId) || (active() && request.auth.uid == attendeeUid);
@@ -88,6 +105,9 @@ service cloud.firestore {
           match /results/{doc} {
             allow read: if canModerate(classId)
               || (canView(classId) && activity().showResults == true && activity().status in ['open', 'closed']);
+          }
+          match /staff/{doc} {
+            allow read: if canModerate(classId);
           }
           match /submissions/{submitterUid} {
             allow read: if canModerate(classId) || (isMember(classId) && request.auth.uid == submitterUid);
