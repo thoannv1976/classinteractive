@@ -156,8 +156,54 @@ runAnswer() ─► thứ tự provider: chọn tay → mặc định của lớp
 | Tệp đính kèm | Chưa bật ở Phase 1; `storage.rules` từ chối mọi truy cập |
 | App Check | Chưa bật (cần đăng ký reCAPTCHA Enterprise cho domain). Có thể bổ sung sau khi có domain chính thức. |
 
-## 10. Phạm vi Phase 1 và việc để Phase 2/3
+## 10. Phase 2 – Phân tích lớp học thông minh
+
+### Tác vụ AI chạy nền
+- Tác vụ dài (phân loại chủ đề, gom nhóm câu hỏi, tóm tắt buổi học, tổng hợp phiếu cuối buổi, gợi ý giảng dạy) chạy ngoài request vì Firebase Hosting giới hạn 60 giây.
+- Production: **Cloud Tasks** (hàng đợi `classinteract-ai`, tối đa 3 lần thử) gọi thẳng Cloud Run `POST /internal/jobs/:classId/:jobId` kèm OIDC token của service account; API xác minh token (`lib/jobs.ts`). Local/emulator: chạy ngay trong tiến trình.
+- Trạng thái lưu ở `classes/{classId}/aiJobs/{jobId}` (queued → running → completed/failed, tiến độ), giảng viên theo dõi realtime.
+- Mọi lời gọi AI đi qua `executeStructured()` (`modules/ai/executor.ts`): thứ tự nhà cung cấp, model theo tác vụ (`taskModels`), quota lớp/ngày, hạn mức chi phí tháng, hoàn quota khi lỗi, ghi `aiRuns` (nguồn dữ liệu, model, token, chi phí).
+- Khi giảng viên kết thúc buổi học (và lớp bật `autoAiOnSessionEnd`), hệ thống tự xếp 3 tác vụ: phân loại chủ đề, gom nhóm câu hỏi, tóm tắt buổi.
+
+### Chủ đề kiến thức
+- Danh mục: `classes/{classId}/topics/{topicId}` (tên, mô tả, nguồn lecturer/ai/session). Bài đăng vẫn lưu tên chủ đề trong `topics[]`.
+- Đổi tên/gộp/xóa/chuyển bài cập nhật mọi bài đăng (kể cả câu trả lời kế thừa chủ đề của chuỗi) và chủ đề của buổi học.
+- AI phân loại ghi `aiTopics` + `topicReview = pending`; giảng viên chấp nhận/sửa/bỏ qua. `aiTopics` được giữ để so sánh với nhãn cuối cùng (`topics`).
+
+### Gom nhóm câu hỏi
+- Có API key OpenAI/Gemini: embedding (`text-embedding-3-small` / `gemini-embedding-001`, cấu hình được) lưu ở `postEmbeddings/` (chỉ server), gom theo ngưỡng cosine, AI đặt tên nhóm.
+- Chỉ có Claude: mô hình ngôn ngữ đọc danh sách câu hỏi và tự xếp nhóm.
+- `classes/{classId}/clusters/{id}`: phạm vi (buổi/lớp), câu hỏi, số SV, số buổi, bình chọn, mức quan tâm, còn mở/đã giải đáp. Nhóm giảng viên đã sửa (`locked`) được giữ khi chạy lại.
+- Gợi ý câu hỏi tương tự khi soạn: `POST /classes/:id/similar-questions` (embedding); không có embedding thì dùng so khớp từ khóa trên trình duyệt.
+
+### Tóm tắt buổi học và phiếu cuối buổi
+- `sessions/{s}/summary/current`: 8 mục theo đặc tả (mục 19), mỗi nhận định có `refs` là id bài đăng gốc (id không có thật bị loại). Trạng thái draft → approved; `published` mới hiện cho sinh viên (Security Rules kiểm tra). Sửa nội dung đưa bản tóm tắt về draft và gỡ công bố.
+- Hoạt động `exit_ticket`: 3 câu hỏi chuẩn, một bài nộp; tính riêng `exitTicketCount` (cơ hội) và `exitTickets` (đã nộp). AI tổng hợp câu trả lời hoạt động tự do/phiếu cuối buổi vào `activities/{a}/staff/aiSummary`.
+
+### Gợi ý giảng dạy
+- `classes/{classId}/insights/latest` (+ lịch sử): nhận định theo nhóm (chủ đề nhiều câu hỏi, khái niệm dễ nhầm, câu hỏi chưa trả lời, cần giảng giải, mức độ tham gia tổng hợp, gợi ý), mỗi nhận định có căn cứ số liệu và liên kết bài gốc; kèm câu hỏi tiếp nối. Prompt cấm suy diễn năng lực/động cơ/tâm lý và không chứa tên/mã SV.
+
+### Điểm tham gia (Engagement Score)
+`packages/shared/src/score.ts` – hàm thuần, có unit test:
+
+| Thành phần (mặc định) | Đã làm / cơ hội |
+|---|---|
+| Hoàn thành hoạt động 30% | hoạt động đã làm (trừ phiếu cuối buổi) / hoạt động đã mở |
+| Trả lời/thảo luận 25% | Σ min(trả lời + bình luận + nhận xét của buổi, giới hạn) / (giới hạn × số buổi) |
+| Đặt câu hỏi 20% | Σ min(câu hỏi của buổi, giới hạn) / (giới hạn × số buổi) |
+| Đóng góp có ích 15% | min(câu trả lời được GV xác nhận, giới hạn × số buổi) / (giới hạn × số buổi) |
+| Phiếu cuối buổi 10% | phiếu đã nộp / phiếu đã mở |
+
+- Thành phần không có cơ hội bị bỏ qua và trọng số được chuẩn hóa lại, nên buổi không có hoạt động không làm giảm điểm. Giới hạn mỗi buổi chống spam. "Số buổi" là các buổi đã diễn ra hoặc (tùy chọn) chỉ các buổi SV có mặt.
+- Công thức lưu phiên bản (`scoreConfigs/current` + `v{n}`); điều chỉnh của giảng viên (`scoreAdjustments/{uid}`); chỉ bản **xác nhận** (`scoreSnapshots/`) mới được coi là chính thức. Sinh viên chỉ thấy điểm tham khảo của mình khi lớp bật `showScoreToStudents`.
+
+### Song ngữ
+- Tiếng Việt là ngôn ngữ nguồn và là khóa dịch; tiếng Anh trong `apps/web/src/i18n/en/*.ts` và `packages/shared/src/i18n/*.ts`. Test bao phủ ở web và API báo lỗi khi thiếu bản dịch.
+- API đọc `x-lang` (hoặc ngôn ngữ trong hồ sơ người dùng) để trả thông báo lỗi, xuất Excel; thông báo trong ứng dụng lưu khóa dịch + tham số để hiển thị theo ngôn ngữ người đọc. AI trả lời theo ngôn ngữ của câu hỏi; tóm tắt/gợi ý theo ngôn ngữ giao diện của người yêu cầu.
+- API key AI: quản trị cấp cao nhập trên giao diện; lưu thành phiên bản mới trong Secret Manager (`anthropic-api-key`, `openai-api-key`, `gemini-api-key`); API đọc lại sau tối đa 60 giây; giao diện chỉ hiện 4 ký tự cuối.
+
+## 11. Phạm vi và việc còn lại
 
 Đã có trong Phase 1: toàn bộ mục 53 của đặc tả, cộng thêm quiz nhanh, kiểm tra mức độ hiểu một chạm, phiếu cuối buổi (mẫu trả lời tự do), heatmap, Presenter Mode, hỏi ẩn danh, bình chọn câu hỏi, hàng đợi câu hỏi chưa giải đáp, gợi ý câu hỏi tương tự (theo từ khóa), in/lưu PDF báo cáo lớp.
 
-Để lại: phân loại chủ đề và gom nhóm câu hỏi bằng AI (embeddings), tóm tắt buổi học bằng AI, Engagement Score có trọng số, thảo luận nhóm, đính kèm tệp, Knowledge Base/RAG, Moodle/LTI, thông báo đẩy (web push), App Check.
+Phase 2 (mục 10) đã có. Còn lại (Phase 3 và tùy chọn): Knowledge Base/RAG theo tài liệu môn học, tìm kiếm ngữ nghĩa toàn khóa, Moodle/LTI, thông báo đẩy (web push), thảo luận nhóm, đính kèm tệp, App Check, phân tích nhiều học phần.

@@ -323,3 +323,80 @@ curl -s -X POST https://HOST/api/v1/classes/$CLASS/sessions/$SESSION/posts \
   -H "authorization: Bearer $ID_TOKEN" -H 'content-type: application/json' \
   -d '{"type":"question","content":"Khác nhau giữa B2B và B2C?","topics":[],"isAnonymous":false,"clientRequestId":"q_3f9c2a71"}'
 ```
+
+## Phase 2 – AI, chủ đề, điểm tham gia
+
+Mọi endpoint dưới đây yêu cầu đăng nhập. "Moderator" = giảng viên phụ trách, quản trị viên hoặc trợ giảng của lớp; "Manager" = giảng viên phụ trách hoặc quản trị viên.
+
+### Ngôn ngữ và tài khoản
+
+| Method | Path | Quyền | Ghi chú |
+|---|---|---|---|
+| PATCH | `/auth/me` | Người dùng | `{ language: "vi" \| "en" }` – ngôn ngữ giao diện |
+| (header) | `x-lang: vi \| en` | – | Ngôn ngữ của thông báo lỗi, xuất Excel/CSV; mặc định theo hồ sơ |
+
+### API key AI (quản trị cấp cao)
+
+| Method | Path | Quyền | Ghi chú |
+|---|---|---|---|
+| GET | `/admin/settings/ai` | Admin | Thêm `keys[]`: `{ provider, configured, source: store\|env\|none, last4, updatedAt }` – không bao giờ trả key |
+| PUT | `/admin/settings/ai/keys/:provider` | Superadmin | `{ apiKey }` (`""` = xóa). Ghi phiên bản mới vào Secret Manager |
+| POST | `/admin/settings/ai/keys/:provider/test` | Admin | Gọi thử mô hình đã cấu hình → `{ ok, model, latencyMs, error? }` |
+
+`PUT /admin/settings/ai` nhận thêm `taskModels` (`{ [answer\|classify\|cluster\|summarize\|insights\|activity_summary]: { provider\|null, model\|null } }`) và `embedding` (`{ provider: openai\|gemini\|null, model, threshold }`).
+
+### Tác vụ AI chạy nền
+
+| Method | Path | Quyền | Ghi chú |
+|---|---|---|---|
+| POST | `/classes/:classId/ai-jobs` | Moderator | `{ type, sessionId?, activityId?, force? }`; `type` = `classify_topics` \| `cluster_questions` \| `summarize_session` \| `summarize_activity` \| `teaching_insights` → `AiJobDoc`. Một tác vụ cùng loại/đối tượng đang chạy thì trả lại tác vụ đó |
+| GET | `/classes/:classId/ai-jobs` | Moderator | 30 tác vụ gần nhất (cũng đọc realtime ở `classes/{id}/aiJobs`) |
+| POST | `/internal/jobs/:classId/:jobId` | Cloud Tasks (OIDC) | Nội bộ, không qua Hosting |
+
+### Chủ đề
+
+| Method | Path | Quyền | Ghi chú |
+|---|---|---|---|
+| GET | `/classes/:classId/topics` | Thành viên (moderator thấy thống kê) | Danh mục + số câu hỏi/trả lời/SV/buổi + `pendingAi` |
+| POST | `/classes/:classId/topics` | Moderator | `{ name, description }` |
+| PATCH | `/classes/:classId/topics/:name` | Moderator | `{ name?, description? }` – đổi tên cập nhật mọi bài đăng |
+| DELETE | `/classes/:classId/topics/:name` | Moderator | Gỡ chủ đề khỏi bài đăng và danh mục |
+| POST | `/classes/:classId/topics/merge` | Moderator | `{ from: string[], into }` |
+| POST | `/classes/:classId/topics/move` | Moderator | `{ posts: PostRef[], remove?, add: string[] }` – chuyển/tách chủ đề |
+| GET | `/classes/:classId/topic-reviews` | Moderator | Bài có đề xuất AI chờ duyệt |
+| POST | `/classes/:classId/topic-reviews` | Moderator | `{ items: [{ sessionId, postId, action: accept\|edit\|reject, topics? }] }` |
+
+### Nhóm câu hỏi
+
+| Method | Path | Quyền | Ghi chú |
+|---|---|---|---|
+| GET | `/classes/:classId/clusters?scope=class\|session&sessionId=` | Moderator | `{ clusters, posts }` |
+| PATCH | `/classes/:classId/clusters/:id` | Moderator | `{ name?, description?, status? }` (đánh dấu đã chỉnh sửa) |
+| DELETE | `/classes/:classId/clusters/:id` | Moderator | Giải tán nhóm |
+| POST | `/classes/:classId/clusters/merge` | Moderator | `{ ids, name? }` |
+| POST | `/classes/:classId/clusters/move` | Moderator | `{ item: PostRef, toClusterId \| null }` |
+| POST | `/classes/:classId/similar-questions` | Thành viên | `{ text, sessionId? }` → `{ method: embedding\|none, items[] }` |
+
+### Tóm tắt buổi học, phiếu cuối buổi, gợi ý giảng dạy
+
+| Method | Path | Quyền | Ghi chú |
+|---|---|---|---|
+| GET | `/classes/:c/sessions/:s/summary` | Moderator; SV khi đã công bố | `{ summary \| null }` |
+| PUT | `/classes/:c/sessions/:s/summary` | Moderator | `{ sections?, status?: draft\|approved, published? }`; công bố cần duyệt trước |
+| GET | `/classes/:c/sessions/:s/activities/:a/ai-summary` | Moderator | Tổng hợp AI của câu trả lời tự do / phiếu cuối buổi |
+| GET | `/classes/:c/insights` | Moderator | Gợi ý giảng dạy mới nhất |
+
+Hoạt động mới `type: "exit_ticket"`: bài nộp gửi `answers: [string, string, string]` (ít nhất một câu có nội dung).
+
+### Điểm tham gia
+
+| Method | Path | Quyền | Ghi chú |
+|---|---|---|---|
+| GET | `/classes/:c/scores` | Moderator | `{ config, rows[{ uid, studentId, displayName, components, raw, adjustment, score }], sessionsHeld, lastSnapshot }` |
+| GET | `/classes/:c/scores/me` | SV (khi lớp bật `showScoreToStudents`) | Điểm tham khảo của chính mình |
+| PUT | `/classes/:c/score-config` | Manager | `{ weights (tổng 100), caps, basis: held\|attended }` → phiên bản mới |
+| PUT | `/classes/:c/score-adjustments/:uid` | Manager | `{ delta: -100..100, note }` |
+| POST | `/classes/:c/scores/confirm` | Manager | Lưu bản xác nhận (snapshot) |
+| GET | `/classes/:c/scores/snapshots` | Moderator | Lịch sử xác nhận |
+
+Xuất dữ liệu có thêm `dataset=scores` (Engagement Scores) và `dataset=clusters` (Question Clusters); file XLSX gồm cả hai bảng.
