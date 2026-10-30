@@ -46,7 +46,7 @@ gcloud services enable \
   run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com \
   firestore.googleapis.com secretmanager.googleapis.com iamcredentials.googleapis.com \
   identitytoolkit.googleapis.com firebase.googleapis.com firebasehosting.googleapis.com \
-  firebaserules.googleapis.com logging.googleapis.com monitoring.googleapis.com \
+  firebaserules.googleapis.com logging.googleapis.com monitoring.googleapis.com cloudtasks.googleapis.com \
   cloudbilling.googleapis.com
 ok "Đã bật API"
 if [ "$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)' 2>/dev/null)" != "True" ]; then
@@ -103,11 +103,18 @@ bold "6/9 Service account và Secret Manager"
 if ! gcloud iam service-accounts describe "$SA" >/dev/null 2>&1; then
   gcloud iam service-accounts create "$SA_NAME" --display-name="ClassInteract API (Cloud Run)"
 fi
-for ROLE in roles/datastore.user roles/firebaseauth.admin roles/secretmanager.secretAccessor roles/logging.logWriter roles/monitoring.metricWriter; do
+for ROLE in roles/datastore.user roles/firebaseauth.admin roles/secretmanager.secretAccessor roles/logging.logWriter roles/monitoring.metricWriter roles/cloudtasks.enqueuer; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$SA" --role="$ROLE" --condition=None >/dev/null
 done
 # Needed to sign Firebase custom tokens (IAM signBlob on itself).
 gcloud iam service-accounts add-iam-policy-binding "$SA" --member="serviceAccount:$SA" --role=roles/iam.serviceAccountTokenCreator >/dev/null
+# Needed to attach its own OIDC identity to Cloud Tasks (background AI jobs).
+gcloud iam service-accounts add-iam-policy-binding "$SA" --member="serviceAccount:$SA" --role=roles/iam.serviceAccountUser >/dev/null
+QUEUE="classinteract-ai"
+if ! gcloud tasks queues describe "$QUEUE" --location="$REGION" >/dev/null 2>&1; then
+  gcloud tasks queues create "$QUEUE" --location="$REGION" --max-attempts=3 --max-concurrent-dispatches=5 >/dev/null
+fi
+ok "Hàng đợi tác vụ AI: $QUEUE"
 ok "Service account: $SA (quyền tối thiểu)"
 
 secret_exists() { gcloud secrets describe "$1" >/dev/null 2>&1; }
@@ -144,13 +151,19 @@ if [ "${SKIP_API:-0}" != "1" ]; then
   else
     gcloud builds submit --config infrastructure/cloudbuild.api.yaml --substitutions "_IMAGE=$IMAGE" .
   fi
+  EXISTING_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)' 2>/dev/null || true)"
   gcloud run deploy "$SERVICE" \
     --image "$IMAGE" --region "$REGION" --service-account "$SA" \
     --allow-unauthenticated --port 8080 --cpu 1 --memory 512Mi \
-    --concurrency 80 --min-instances 0 --max-instances 10 --timeout 60 \
-    --set-env-vars "GCLOUD_PROJECT=$PROJECT_ID,LOG_LEVEL=info" \
+    --concurrency 80 --min-instances 0 --max-instances 10 --timeout 300 \
+    --set-env-vars "GCLOUD_PROJECT=$PROJECT_ID,LOG_LEVEL=info,TASKS_QUEUE=projects/$PROJECT_ID/locations/$REGION/queues/$QUEUE,TASKS_SA_EMAIL=$SA${EXISTING_URL:+,SERVICE_URL=$EXISTING_URL}" \
     --set-secrets "$SECRETS"
-  ok "API: $(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
+  SERVICE_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
+  # Cloud Tasks calls the service directly (not through Hosting) for long AI jobs.
+  if [ "$SERVICE_URL" != "$EXISTING_URL" ]; then
+    gcloud run services update "$SERVICE" --region "$REGION" --update-env-vars "SERVICE_URL=$SERVICE_URL" >/dev/null
+  fi
+  ok "API: $SERVICE_URL"
   echo "  (Ứng dụng tự kiểm tra đăng nhập; truy cập công khai là cần thiết để Firebase Hosting chuyển tiếp /api.)"
 fi
 
