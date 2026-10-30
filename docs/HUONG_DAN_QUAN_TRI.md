@@ -91,15 +91,15 @@ Mỗi nhà cung cấp có:
 Bấm **Lưu cấu hình** để áp dụng ngay.
 
 ### 5.3 API key
-API key **không nhập trên giao diện**. Chúng được lưu trong **Google Cloud Secret Manager** và gắn vào dịch vụ API thành biến môi trường:
+Chỉ **Quản trị cấp cao** nhập được API key, ngay trên trang **Cấu hình AI**: dán key vào ô **API key** của từng nhà cung cấp → **Lưu key** → **Kiểm tra kết nối**. Trình duyệt không bao giờ nhận lại key (chỉ hiện 4 ký tự cuối). Key được lưu thành phiên bản mới trong **Google Cloud Secret Manager** và có hiệu lực sau khoảng 1 phút, không cần triển khai lại:
 
-| Nhà cung cấp | Secret | Biến môi trường |
-|---|---|---|
-| Anthropic Claude | `anthropic-api-key` | `ANTHROPIC_API_KEY` |
-| OpenAI | `openai-api-key` | `OPENAI_API_KEY` |
-| Google Gemini | `gemini-api-key` | `GEMINI_API_KEY` |
+| Nhà cung cấp | Secret |
+|---|---|
+| Anthropic Claude | `anthropic-api-key` |
+| OpenAI | `openai-api-key` |
+| Google Gemini | `gemini-api-key` |
 
-Giao diện chỉ hiện trạng thái **Đã có API key** hoặc **Chưa có secret …**. Thêm/đổi key: tạo phiên bản secret mới rồi triển khai lại dịch vụ API (xem [DEPLOYMENT.md](./DEPLOYMENT.md)). Cảnh báo “Đang chạy chế độ AI mô phỏng (AI_FAKE_PROVIDER=1)” nghĩa là AI đang trả lời giả lập, chỉ dùng để kiểm thử.
+Giao diện hiện **Đã có API key** hoặc **Chưa có API key**. Cảnh báo “Đang chạy chế độ AI mô phỏng (AI_FAKE_PROVIDER=1)” nghĩa là AI đang trả lời giả lập, chỉ dùng để kiểm thử.
 
 ### 5.4 Lịch sử sử dụng AI
 Cuối trang **Cấu hình AI**: tổng lượt và chi phí ước tính theo tháng (12 tháng gần nhất) và 50 lượt gọi gần nhất (**Thời gian, Nhà cung cấp, Mô hình, Trạng thái** `completed/failed/pending`, **Duyệt** `draft/published/rejected/auto_published`, **Token** vào/ra, **Chi phí**). Rê chuột lên trạng thái `failed` để xem lỗi. Trang **Quản trị** hiện **Lượt AI tháng này** và **Chi phí AI ước tính**.
@@ -157,7 +157,7 @@ Tài khoản đăng nhập Firebase Auth không nằm trong bản export Firesto
 | “Bạn đã nhập sai nhiều lần…” | Chờ 5 phút, hoặc **Đặt lại mật khẩu** (gỡ khóa ngay) |
 | Người dùng bị đăng xuất liên tục | Tài khoản bị khóa, vừa đổi vai trò hoặc đặt lại mật khẩu. Kiểm tra **Nhật ký** |
 | Giảng viên không thấy lớp | Kiểm tra **Phân công** ở **Lớp & học phần** |
-| “Chưa cấu hình nhà cung cấp AI nào (thiếu API key)” | Thêm secret trong Secret Manager và triển khai lại, hoặc bật **Sử dụng** cho nhà cung cấp đã có key |
+| “Chưa cấu hình nhà cung cấp AI nào (thiếu API key)” | Nhập API key ở **Cấu hình AI** (quản trị cấp cao), hoặc bật **Sử dụng** cho nhà cung cấp đã có key |
 | “Dịch vụ AI tạm thời không khả dụng” | Xem lỗi trong **Lịch sử sử dụng AI**: Model ID sai/ngừng hỗ trợ, key hết hạn, hết hạn mức của nhà cung cấp hoặc quá thời gian chờ. Sửa Model ID hoặc đổi nhà cung cấp mặc định |
 | “Đã đạt hạn mức chi phí AI của tháng” | Tăng **Hạn mức chi phí/tháng** nếu được phép, hoặc chờ sang tháng |
 | “Bạn thao tác quá nhanh…” hàng loạt | Giới hạn tần suất (600 yêu cầu/phút mỗi người, 300/phút mỗi IP cho đăng nhập). Nếu cả lớp bị lỗi đăng nhập cùng lúc qua một IP, thử lại sau một phút |
