@@ -120,7 +120,7 @@ export function AppShell() {
   const unread = useUnreadCount();
   const loc = useLocation();
   const navigate = useNavigate();
-  const immersive = loc.pathname.startsWith('/present/');
+  const immersive = loc.pathname.startsWith('/present/') || loc.pathname.startsWith('/print/');
   if (immersive) return <Outlet />;
 
   const badge = (n: NavItem) =>

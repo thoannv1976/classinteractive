@@ -234,6 +234,13 @@ const en: Record<string, string> = {
   'Tạm dừng_action': 'Pause',
   'Lưu trữ_action': 'Archive',
   'Chưa hiểu_tab': 'Unclear',
+  // AI jobs
+  '{{task}}: hoàn tất': '{{task}}: done',
+  'Lần chạy gần nhất bị lỗi': 'Last run failed',
+  'Lần chạy gần nhất: {{time}}': 'Last run: {{time}}',
+  'Nhóm câu hỏi': 'Question groups',
+  'Điểm tham gia': 'Engagement score',
+  'Gợi ý AI': 'AI insights',
 };
 
 export default en;

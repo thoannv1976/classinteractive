@@ -24,6 +24,9 @@ const TABS = [
   { to: 'students', label: tk('Sinh viên') },
   { to: 'analytics', label: tk('Mức độ tham gia') },
   { to: 'topics', label: tk('Chủ đề') },
+  { to: 'clusters', label: tk('Nhóm câu hỏi') },
+  { to: 'scores', label: tk('Điểm tham gia') },
+  { to: 'insights', label: tk('Gợi ý AI') },
   { to: 'reports', label: tk('Báo cáo') },
   { to: 'settings', label: tk('Cài đặt'), manage: true },
 ];

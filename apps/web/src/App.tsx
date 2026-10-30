@@ -77,6 +77,10 @@ const TeachClassesPage = lazy(() =>
 const TeachDashboard = lazy(() =>
   import('@/features/lecturer/TeachDashboard').then((m) => ({ default: m.TeachDashboard })),
 );
+const ClustersPage = lazy(() => import('@/features/lecturer/ClustersPage').then((m) => ({ default: m.ClustersPage })));
+const ScoresPage = lazy(() => import('@/features/lecturer/ScoresPage').then((m) => ({ default: m.ScoresPage })));
+const InsightsPage = lazy(() => import('@/features/lecturer/InsightsPage').then((m) => ({ default: m.InsightsPage })));
+const ReportPrintPage = lazy(() => import('@/features/lecturer/ReportPrintPage').then((m) => ({ default: m.ReportPrintPage })));
 const TopicsPage = lazy(() =>
   import('@/features/lecturer/TopicsPage').then((m) => ({ default: m.TopicsPage })),
 );
@@ -223,10 +227,14 @@ export function App() {
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="analytics/students/:uid" element={<StudentDetailPage />} />
             <Route path="topics" element={<TopicsPage />} />
+            <Route path="clusters" element={<ClustersPage />} />
+            <Route path="scores" element={<ScoresPage />} />
+            <Route path="insights" element={<InsightsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<ClassSettingsPage />} />
           </Route>
           <Route path="present/:classId/:sessionId" element={<PresenterPage />} />
+          <Route path="print/:classId/:type" element={<ReportPrintPage />} />
           {/* Admin */}
           <Route
             path="admin"
