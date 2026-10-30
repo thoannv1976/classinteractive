@@ -1,6 +1,7 @@
 import * as D from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 export function Dialog({
@@ -20,6 +21,7 @@ export function Dialog({
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
+  const { t } = useTranslation();
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
@@ -36,10 +38,10 @@ export function Dialog({
               {description ? (
                 <D.Description className="mt-1 text-sm text-muted">{description}</D.Description>
               ) : (
-                <D.Description className="sr-only">{typeof title === 'string' ? title : 'Hộp thoại'}</D.Description>
+                <D.Description className="sr-only">{typeof title === 'string' ? title : t('Hộp thoại')}</D.Description>
               )}
             </div>
-            <D.Close className="rounded-md p-1 text-muted hover:bg-slate-100" aria-label="Đóng">
+            <D.Close className="rounded-md p-1 text-muted hover:bg-slate-100" aria-label={t('Đóng')}>
               <X className="h-5 w-5" />
             </D.Close>
           </div>
@@ -57,7 +59,7 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = 'Xác nhận',
+  confirmLabel,
   danger,
   loading,
   onConfirm,
@@ -73,6 +75,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   children?: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <Dialog
       open={open}
@@ -83,14 +86,14 @@ export function ConfirmDialog({
       footer={
         <>
           <button className="h-10 rounded-lg border border-border-strong px-4 text-sm font-medium hover:bg-surface-2" onClick={() => onOpenChange(false)}>
-            Hủy
+            {t('Hủy')}
           </button>
           <button
             className={cn('inline-flex h-10 items-center rounded-lg px-4 text-sm font-medium text-white disabled:opacity-50', danger ? 'bg-danger' : 'bg-primary')}
             disabled={loading}
             onClick={onConfirm}
           >
-            {loading ? 'Đang xử lý…' : confirmLabel}
+            {loading ? t('Đang xử lý…') : (confirmLabel ?? t('Xác nhận'))}
           </button>
         </>
       }

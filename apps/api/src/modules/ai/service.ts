@@ -13,6 +13,7 @@ import { db, inc, now } from '../../firebase';
 import { assertSessionAccepts, bumpClassStats, bumpSessionStats } from '../../lib/counters';
 import { AppError, conflict, notFound } from '../../lib/errors';
 import { C } from '../../lib/paths';
+import { guessLang } from '../../lib/lang';
 import { monthKey, todayKey } from '../../lib/time';
 import { getAdapter } from './providers';
 import { getAiSettings } from './settings';
@@ -32,7 +33,7 @@ export const ANSWER_SCHEMA = {
 
 const SYSTEM_PROMPT = `Bạn là trợ giảng AI hỗ trợ giảng viên đại học trả lời câu hỏi của sinh viên trong buổi học.
 Yêu cầu:
-- Trả lời bằng tiếng Việt, chính xác, rõ ràng, phù hợp trình độ đại học.
+- Trả lời bằng ĐÚNG ngôn ngữ được yêu cầu ở cuối dữ liệu (tiếng Việt hoặc tiếng Anh), chính xác, rõ ràng, phù hợp trình độ đại học.
 - Bám sát học phần và chủ đề buổi học được cung cấp. Nếu câu hỏi nằm ngoài phạm vi, nói rõ và gợi ý hướng tìm hiểu.
 - Không bịa đặt số liệu, trích dẫn hay nguồn tài liệu. Nếu không chắc chắn, nói rõ mức độ không chắc chắn.
 - Câu trả lời là bản nháp để giảng viên xem lại; không tự xưng là giảng viên.
@@ -56,14 +57,16 @@ function buildPrompt(cls: ClassDoc, session: SessionDoc, question: PostDoc, offi
     .filter(Boolean)
     .map(sanitize)
     .join('\n');
-  return `<course_context>\n${ctx}\n</course_context>\n\n<student_question>\n${sanitize(question.content)}\n</student_question>`;
+  const answerLang = guessLang(question.content) === 'en' ? 'tiếng Anh (English)' : 'tiếng Việt';
+  return `<course_context>\n${ctx}\n</course_context>\n\n<student_question>\n${sanitize(question.content)}\n</student_question>\n\nNgôn ngữ trả lời: ${answerLang}`;
 }
 
 export function formatAnswer(o: AiAnswerOutput) {
+  const en = guessLang(`${o.shortAnswer} ${o.explanation}`) === 'en';
   const parts = [o.shortAnswer.trim()];
   if (o.explanation.trim()) parts.push(o.explanation.trim());
-  if (o.example.trim()) parts.push(`Ví dụ: ${o.example.trim()}`);
-  if (o.relatedConcepts.length) parts.push(`Khái niệm liên quan: ${o.relatedConcepts.join(', ')}`);
+  if (o.example.trim()) parts.push(`${en ? 'Example' : 'Ví dụ'}: ${o.example.trim()}`);
+  if (o.relatedConcepts.length) parts.push(`${en ? 'Related concepts' : 'Khái niệm liên quan'}: ${o.relatedConcepts.join(', ')}`);
   return parts.join('\n\n');
 }
 
@@ -79,7 +82,7 @@ function normaliseOutput(raw: unknown): AiAnswerOutput {
 }
 
 /** Reserve quota atomically before calling a provider. */
-async function reserveQuota(cls: ClassDoc, user: UserDoc, studentLimited: boolean, monthlyLimit: number) {
+export async function reserveQuota(cls: ClassDoc, user: UserDoc, studentLimited: boolean, monthlyLimit: number) {
   const day = todayKey();
   const classRef = C.aiUsage().doc(`class_${cls.classId}_${day}`);
   const userRef = C.aiUsage().doc(`user_${cls.classId}_${user.uid}_${day}`);
@@ -140,10 +143,12 @@ export async function runAnswer(opts: {
     .slice(0, 3);
 
   // Provider order: explicit choice → class default → global default → fallbacks; only enabled + configured.
-  const order = [opts.provider, cls.settings.aiProvider, settings.defaultProvider, ...settings.fallbackOrder, ...AI_PROVIDERS]
+  const candidates = [opts.provider, cls.settings.aiProvider, settings.defaultProvider, ...settings.fallbackOrder, ...AI_PROVIDERS]
     .filter((p): p is AiProvider => !!p)
     .filter((p, i, arr) => arr.indexOf(p) === i)
-    .filter((p) => settings.providers[p]?.enabled && getAdapter(p).isConfigured());
+    .filter((p) => settings.providers[p]?.enabled);
+  const configured = await Promise.all(candidates.map((p) => getAdapter(p).isConfigured()));
+  const order = candidates.filter((_, i) => configured[i]);
   if (!order.length) throw new AppError(503, 'AI_NOT_CONFIGURED', 'Chưa cấu hình nhà cung cấp AI nào (thiếu API key)');
 
   const { monthRef, refund } = await reserveQuota(cls, user, opts.studentRequest, settings.monthlyCostLimitUsd);
@@ -295,5 +300,5 @@ export async function getRun(runId: string) {
   return snap.data() as AiRunDoc & { postId: string };
 }
 
-export const providerStatus = () =>
-  AI_PROVIDERS.map((p) => ({ provider: p, configured: getAdapter(p).isConfigured(), fake: config.ai.fake }));
+export const providerStatus = async () =>
+  Promise.all(AI_PROVIDERS.map(async (p) => ({ provider: p, configured: await getAdapter(p).isConfigured(), fake: config.ai.fake })));

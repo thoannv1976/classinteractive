@@ -18,7 +18,7 @@ export default async function courseRoutes(app: FastifyInstance) {
     const input = parse(courseSchema, req.body);
     const me = currentUser(req);
     const dup = await C.courses().where('tenantId', '==', config.tenantId).where('code', '==', input.code).limit(1).get();
-    if (!dup.empty) throw conflict(`Mã học phần ${input.code} đã tồn tại`);
+    if (!dup.empty) throw conflict('Mã học phần {{code}} đã tồn tại', 'CONFLICT', { code: input.code });
     const ref = C.courses().doc();
     await ref.set({ ...input, courseId: ref.id, tenantId: config.tenantId, createdBy: me.uid, createdAt: now(), updatedAt: now() });
     await audit(req, 'course.create', 'course', ref.id, { code: input.code });

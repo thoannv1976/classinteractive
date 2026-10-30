@@ -1,5 +1,6 @@
 import { CalendarPlus, MonitorPlay, MoreHorizontal, Pencil, Play, Archive, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import type { SessionDoc, SessionStatsDoc } from '@classinteract/shared';
@@ -17,6 +18,7 @@ import { SessionFormDialog } from './SessionFormDialog';
 type Row = SessionDoc & { stats: SessionStatsDoc | null };
 
 export function SessionsPage() {
+  const { t } = useTranslation();
   const { cls, access } = useClassCtx();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useApi<{ items: Row[] }>(`/classes/${cls.classId}/sessions`);
@@ -30,7 +32,7 @@ export function SessionsPage() {
       else await api.post(`/classes/${cls.classId}/sessions/${s.sessionId}/${action}`);
       await invalidate(`/classes/${cls.classId}`);
       if (action === 'start') navigate(`${s.sessionId}`);
-      else toast.success(action === 'archive' ? 'Đã lưu trữ' : 'Đã xóa');
+      else toast.success(action === 'archive' ? t('Đã lưu trữ') : t('Đã xóa'));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -41,7 +43,7 @@ export function SessionsPage() {
       {access.canManage && (
         <div className="flex justify-end">
           <Button onClick={() => setEditing(null)}>
-            <CalendarPlus className="h-4 w-4" /> Tạo buổi học
+            <CalendarPlus className="h-4 w-4" /> {t('Tạo buổi học')}
           </Button>
         </div>
       )}
@@ -51,19 +53,19 @@ export function SessionsPage() {
         ) : error ? (
           <ErrorState error={error} onRetry={() => refetch()} />
         ) : !items.length ? (
-          <EmptyState title="Chưa có buổi học" description="Tạo buổi học, sau đó bấm Bắt đầu để sinh viên tham gia bằng mã hoặc QR." action={access.canManage && <Button onClick={() => setEditing(null)}>Tạo buổi học đầu tiên</Button>} />
+          <EmptyState title={t('Chưa có buổi học')} description={t('Tạo buổi học, sau đó bấm Bắt đầu để sinh viên tham gia bằng mã hoặc QR.')} action={access.canManage && <Button onClick={() => setEditing(null)}>{t('Tạo buổi học đầu tiên')}</Button>} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>Buổi</Th>
-                <Th>Tên buổi học</Th>
-                <Th>Thời gian</Th>
-                <Th>Trạng thái</Th>
-                <Th className="text-right">SV tham gia</Th>
-                <Th className="text-right">Câu hỏi</Th>
-                <Th className="text-right">Trả lời</Th>
-                <Th className="text-right">Hoạt động</Th>
+                <Th>{t('Buổi')}</Th>
+                <Th>{t('Tên buổi học')}</Th>
+                <Th>{t('Thời gian')}</Th>
+                <Th>{t('Trạng thái')}</Th>
+                <Th className="text-right">{t('SV tham gia')}</Th>
+                <Th className="text-right">{t('Câu hỏi', { context: 'n' })}</Th>
+                <Th className="text-right">{t('Trả lời', { context: 'n' })}</Th>
+                <Th className="text-right">{t('Hoạt động')}</Th>
                 <Th />
               </tr>
             </thead>
@@ -73,7 +75,7 @@ export function SessionsPage() {
                   <Td className="tabular-nums">{s.sessionNumber}</Td>
                   <Td>
                     <Link to={s.sessionId} className="font-medium hover:text-primary">{s.title}</Link>
-                    {s.topics.length > 0 && <p className="mt-0.5 max-w-xs truncate text-xs text-muted">{s.topics.map((t) => '#' + t).join(' ')}</p>}
+                    {s.topics.length > 0 && <p className="mt-0.5 max-w-xs truncate text-xs text-muted">{s.topics.map((tp) => '#' + tp).join(' ')}</p>}
                   </Td>
                   <Td className="text-muted">{sessionTime(s)}</Td>
                   <Td><SessionStatusBadge status={s.status} /></Td>
@@ -85,19 +87,19 @@ export function SessionsPage() {
                     <div className="flex justify-end gap-1">
                       {access.canManage && (s.status === 'draft' || s.status === 'closed') ? (
                         <Button size="sm" variant={s.status === 'draft' ? 'primary' : 'outline'} onClick={() => act(s, 'start')}>
-                          <Play className="h-4 w-4" /> {s.status === 'draft' ? 'Bắt đầu' : 'Mở lại'}
+                          <Play className="h-4 w-4" /> {s.status === 'draft' ? t('Bắt đầu') : t('Mở lại')}
                         </Button>
                       ) : (
                         <Link to={s.sessionId} className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary-soft px-3 text-xs font-medium text-primary">
-                          <MonitorPlay className="h-4 w-4" /> Điều hành
+                          <MonitorPlay className="h-4 w-4" /> {t('Điều hành')}
                         </Link>
                       )}
                       {access.canManage && (
-                        <Menu trigger={<Button size="icon-sm" variant="ghost" aria-label="Thêm"><MoreHorizontal className="h-4 w-4" /></Button>}>
-                          <MenuItem onSelect={() => navigate(s.sessionId)}><MonitorPlay className="h-4 w-4" /> Mở trang điều hành</MenuItem>
-                          <MenuItem onSelect={() => setEditing(s)}><Pencil className="h-4 w-4" /> Sửa thông tin</MenuItem>
-                          {s.status === 'closed' && <MenuItem onSelect={() => act(s, 'archive')}><Archive className="h-4 w-4" /> Lưu trữ</MenuItem>}
-                          {s.status === 'draft' && !s.startedAt && <MenuItem danger onSelect={() => act(s, 'delete')}><Trash2 className="h-4 w-4" /> Xóa</MenuItem>}
+                        <Menu trigger={<Button size="icon-sm" variant="ghost" aria-label={t('Thêm')}><MoreHorizontal className="h-4 w-4" /></Button>}>
+                          <MenuItem onSelect={() => navigate(s.sessionId)}><MonitorPlay className="h-4 w-4" /> {t('Mở trang điều hành')}</MenuItem>
+                          <MenuItem onSelect={() => setEditing(s)}><Pencil className="h-4 w-4" /> {t('Sửa thông tin')}</MenuItem>
+                          {s.status === 'closed' && <MenuItem onSelect={() => act(s, 'archive')}><Archive className="h-4 w-4" /> {t('Lưu trữ', { context: 'action' })}</MenuItem>}
+                          {s.status === 'draft' && !s.startedAt && <MenuItem danger onSelect={() => act(s, 'delete')}><Trash2 className="h-4 w-4" /> {t('Xóa')}</MenuItem>}
                         </Menu>
                       )}
                     </div>

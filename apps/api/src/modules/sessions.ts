@@ -192,8 +192,10 @@ export default async function sessionRoutes(app: FastifyInstance) {
         members.docs.map((d) => (d.data() as MemberDoc).uid),
         {
           type: 'session_opened',
-          title: `Buổi học đã bắt đầu: ${a.cls.classCode}`,
-          body: `Buổi ${s.sessionNumber}: ${s.title}`,
+          title: 'Buổi học đã bắt đầu: {{code}}',
+          titleParams: { code: a.cls.classCode },
+          body: 'Buổi {{n}}: {{title}}',
+          bodyParams: { n: s.sessionNumber, title: s.title },
           link: `/classes/${classId}/sessions/${sessionId}`,
         },
       );

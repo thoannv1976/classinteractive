@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ClassDoc, PostDoc } from '@classinteract/shared';
 import { EmptyState, ListSkeleton } from '@/components/ui/feedback';
 import { useLiveDoc } from '@/lib/firestore';
@@ -37,14 +38,15 @@ export function Thread({
       }),
     [replies.data],
   );
+  const { t } = useTranslation();
   if (root.loading) return <ListSkeleton rows={2} />;
-  if (!root.data) return <EmptyState title="Không tìm thấy bài đăng" description="Bài có thể đã bị ẩn hoặc xóa." />;
+  if (!root.data) return <EmptyState title={t('Không tìm thấy bài đăng')} description={t('Bài có thể đã bị ẩn hoặc xóa.')} />;
   const common = { classId: cls.classId, sessionId, staff, editWindowMinutes: cls.settings.editWindowMinutes, revealAllowed: cls.settings.revealAnonymousToStaff };
   return (
     <div className="space-y-4">
       <PostCard post={root.data} {...common} onAskAi={onAskAi} canAskAiAsStudent={canAskAiAsStudent} />
       <div className="space-y-3 border-l-2 border-border pl-3 sm:pl-5">
-        <p className="text-sm font-medium text-muted">{sorted.length} phản hồi</p>
+        <p className="text-sm font-medium text-muted">{t('{{n}} phản hồi', { n: sorted.length })}</p>
         {replies.loading ? (
           <ListSkeleton rows={2} />
         ) : (

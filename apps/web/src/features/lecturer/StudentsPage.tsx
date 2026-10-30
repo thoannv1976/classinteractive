@@ -1,5 +1,6 @@
 import { ArrowRightLeft, Check, KeyRound, MoreHorizontal, Search, ShieldCheck, Upload, UserMinus, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import type { ClassDoc, EnrollmentRequestDoc, MemberDoc } from '@classinteract/shared';
@@ -22,6 +23,7 @@ interface Members {
 }
 
 export function StudentsPage() {
+  const { t } = useTranslation();
   const { cls, access } = useClassCtx();
   const base = `/classes/${cls.classId}`;
   const members = useApi<Members>(`${base}/members`);
@@ -34,8 +36,8 @@ export function StudentsPage() {
   const [busy, setBusy] = useState(false);
 
   const filtered = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return (members.data?.members ?? []).filter((m) => !t || `${m.studentId} ${m.displayName}`.toLowerCase().includes(t));
+    const needle = q.trim().toLowerCase();
+    return (members.data?.members ?? []).filter((m) => !needle || `${m.studentId} ${m.displayName}`.toLowerCase().includes(needle));
   }, [members.data, q]);
 
   const run = async (fn: () => Promise<unknown>, msg: string) => {
@@ -69,7 +71,7 @@ export function StudentsPage() {
     <div className="space-y-6">
       {(requests.data?.items.length ?? 0) > 0 && (
         <Card className="border-orange-200">
-          <CardHeader title="Yêu cầu tham gia lớp" description="Sinh viên chưa có trong danh sách xin vào lớp" />
+          <CardHeader title={t('Yêu cầu tham gia lớp')} description={t('Sinh viên chưa có trong danh sách xin vào lớp')} />
           <CardBody className="space-y-2">
             {requests.data!.items.map((r) => (
               <div key={r.uid} className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
@@ -79,11 +81,11 @@ export function StudentsPage() {
                 </div>
                 {access.canManage && (
                   <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => run(() => api.post(`${base}/enrollment-requests/${r.uid}/decide`, { approve: true }), 'Đã duyệt vào lớp')}>
-                      <Check className="h-4 w-4" /> Duyệt
+                    <Button size="sm" variant="secondary" onClick={() => run(() => api.post(`${base}/enrollment-requests/${r.uid}/decide`, { approve: true }), t('Đã duyệt vào lớp'))}>
+                      <Check className="h-4 w-4" /> {t('Duyệt')}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => run(() => api.post(`${base}/enrollment-requests/${r.uid}/decide`, { approve: false }), 'Đã từ chối')}>
-                      <X className="h-4 w-4" /> Từ chối
+                    <Button size="sm" variant="outline" onClick={() => run(() => api.post(`${base}/enrollment-requests/${r.uid}/decide`, { approve: false }), t('Đã từ chối'))}>
+                      <X className="h-4 w-4" /> {t('Từ chối')}
                     </Button>
                   </div>
                 )}
@@ -94,12 +96,12 @@ export function StudentsPage() {
       )}
       <Card>
         <CardHeader
-          title={`Sinh viên trong lớp (${members.data?.members.length ?? 0})`}
-          description="Sinh viên đã đăng ký tài khoản và được gán vào lớp"
+          title={t('Sinh viên trong lớp ({{count}})', { count: members.data?.members.length ?? 0 })}
+          description={t('Sinh viên đã đăng ký tài khoản và được gán vào lớp')}
           actions={
             access.canManage && (
               <Button onClick={() => setImportOpen(true)}>
-                <Upload className="h-4 w-4" /> Nhập danh sách
+                <Upload className="h-4 w-4" /> {t('Nhập danh sách')}
               </Button>
             )
           }
@@ -108,7 +110,7 @@ export function StudentsPage() {
           <div className="px-4 pt-4 sm:px-5">
             <div className="relative max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm mã SV, họ tên" className="pl-9" aria-label="Tìm sinh viên" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Tìm mã SV, họ tên')} className="pl-9" aria-label={t('Tìm sinh viên')} />
             </div>
           </div>
           {members.isLoading ? (
@@ -116,11 +118,11 @@ export function StudentsPage() {
           ) : members.error ? (
             <ErrorState error={members.error} />
           ) : !filtered.length ? (
-            <EmptyState title="Chưa có sinh viên" description="Nhập danh sách lớp từ file Excel/CSV. Sinh viên sẽ tự đăng ký bằng mã sinh viên." />
+            <EmptyState title={t('Chưa có sinh viên')} description={t('Nhập danh sách lớp từ file Excel/CSV. Sinh viên sẽ tự đăng ký bằng mã sinh viên.')} />
           ) : (
             <Table>
               <thead>
-                <tr><Th>STT</Th><Th>Mã SV</Th><Th>Họ tên</Th><Th>Vai trò</Th><Th /></tr>
+                <tr><Th>{t('STT')}</Th><Th>{t('Mã SV')}</Th><Th>{t('Họ tên')}</Th><Th>{t('Vai trò')}</Th><Th /></tr>
               </thead>
               <tbody>
                 {filtered.map((m, i) => (
@@ -130,22 +132,22 @@ export function StudentsPage() {
                     <Td>
                       <Link to={`../analytics/students/${m.uid}`} className="hover:text-primary">{m.displayName}</Link>
                     </Td>
-                    <Td>{m.role === 'ta' ? <Badge tone="secondary">Trợ giảng</Badge> : <span className="text-sm text-muted">Sinh viên</span>}</Td>
+                    <Td>{m.role === 'ta' ? <Badge tone="secondary">{t('Trợ giảng')}</Badge> : <span className="text-sm text-muted">{t('Sinh viên', { context: 'n' })}</span>}</Td>
                     <Td className="text-right">
                       {access.canManage && (
-                        <Menu trigger={<Button size="icon-sm" variant="ghost" aria-label="Thao tác" disabled={busy}><MoreHorizontal className="h-4 w-4" /></Button>}>
-                          <MenuItem onSelect={() => run(() => api.patch(`${base}/members/${m.uid}`, { role: m.role === 'ta' ? 'student' : 'ta' }), m.role === 'ta' ? 'Đã bỏ quyền trợ giảng' : 'Đã cấp quyền trợ giảng')}>
-                            <ShieldCheck className="h-4 w-4" /> {m.role === 'ta' ? 'Bỏ quyền trợ giảng' : 'Cấp quyền trợ giảng'}
+                        <Menu trigger={<Button size="icon-sm" variant="ghost" aria-label={t('Thao tác')} disabled={busy}><MoreHorizontal className="h-4 w-4" /></Button>}>
+                          <MenuItem onSelect={() => run(() => api.patch(`${base}/members/${m.uid}`, { role: m.role === 'ta' ? 'student' : 'ta' }), m.role === 'ta' ? t('Đã bỏ quyền trợ giảng') : t('Đã cấp quyền trợ giảng'))}>
+                            <ShieldCheck className="h-4 w-4" /> {m.role === 'ta' ? t('Bỏ quyền trợ giảng') : t('Cấp quyền trợ giảng')}
                           </MenuItem>
                           <MenuItem onSelect={() => setConfirm({ kind: 'reset', m })}>
-                            <KeyRound className="h-4 w-4" /> Đặt lại mật khẩu
+                            <KeyRound className="h-4 w-4" /> {t('Đặt lại mật khẩu')}
                           </MenuItem>
                           <MenuItem onSelect={() => setMoving(m)}>
-                            <ArrowRightLeft className="h-4 w-4" /> Chuyển sang lớp khác
+                            <ArrowRightLeft className="h-4 w-4" /> {t('Chuyển sang lớp khác')}
                           </MenuItem>
                           <MenuSeparator />
                           <MenuItem danger onSelect={() => setConfirm({ kind: 'remove', m })}>
-                            <UserMinus className="h-4 w-4" /> Xóa khỏi lớp
+                            <UserMinus className="h-4 w-4" /> {t('Xóa khỏi lớp')}
                           </MenuItem>
                         </Menu>
                       )}
@@ -159,9 +161,9 @@ export function StudentsPage() {
       </Card>
       {(members.data?.pendingRoster.length ?? 0) > 0 && (
         <Card>
-          <CardHeader title={`Chưa đăng ký tài khoản (${members.data!.pendingRoster.length})`} description="Có trong danh sách lớp nhưng chưa tự đăng ký. Hãy nhắc sinh viên vào trang Đăng ký và nhập mã sinh viên." />
+          <CardHeader title={t('Chưa đăng ký tài khoản ({{count}})', { count: members.data!.pendingRoster.length })} description={t('Có trong danh sách lớp nhưng chưa tự đăng ký. Hãy nhắc sinh viên vào trang Đăng ký và nhập mã sinh viên.')} />
           <Table>
-            <thead><tr><Th>Mã SV</Th><Th>Họ tên</Th><Th>Email</Th><Th /></tr></thead>
+            <thead><tr><Th>{t('Mã SV')}</Th><Th>{t('Họ tên')}</Th><Th>Email</Th><Th /></tr></thead>
             <tbody>
               {members.data!.pendingRoster.map((r) => (
                 <tr key={r.studentId}>
@@ -170,7 +172,7 @@ export function StudentsPage() {
                   <Td className="text-muted">{r.email}</Td>
                   <Td className="text-right">
                     {access.canManage && (
-                      <Button size="sm" variant="ghost" onClick={() => setConfirm({ kind: 'roster', studentId: r.studentId })}>Bỏ khỏi danh sách</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirm({ kind: 'roster', studentId: r.studentId })}>{t('Bỏ khỏi danh sách')}</Button>
                     )}
                   </Td>
                 </tr>
@@ -183,35 +185,35 @@ export function StudentsPage() {
       <ConfirmDialog
         open={confirm?.kind === 'remove'}
         onOpenChange={(v) => !v && setConfirm(null)}
-        title="Xóa sinh viên khỏi lớp?"
-        description={`${confirm?.m?.displayName} sẽ không còn truy cập lớp. Dữ liệu tương tác đã có vẫn được giữ.`}
+        title={t('Xóa sinh viên khỏi lớp?')}
+        description={t('{{name}} sẽ không còn truy cập lớp. Dữ liệu tương tác đã có vẫn được giữ.', { name: confirm?.m?.displayName })}
         danger
-        confirmLabel="Xóa khỏi lớp"
+        confirmLabel={t('Xóa khỏi lớp')}
         loading={busy}
-        onConfirm={() => confirm?.m && run(() => api.del(`${base}/members/${confirm.m!.uid}`), 'Đã xóa khỏi lớp')}
+        onConfirm={() => confirm?.m && run(() => api.del(`${base}/members/${confirm.m!.uid}`), t('Đã xóa khỏi lớp'))}
       />
       <ConfirmDialog
         open={confirm?.kind === 'reset'}
         onOpenChange={(v) => !v && setConfirm(null)}
-        title="Đặt lại mật khẩu?"
-        description={`Hệ thống tạo mật khẩu tạm cho ${confirm?.m?.displayName}. Sinh viên phải đổi mật khẩu khi đăng nhập lại; các phiên đang mở bị đăng xuất.`}
-        confirmLabel="Đặt lại"
+        title={t('Đặt lại mật khẩu?')}
+        description={t('Hệ thống tạo mật khẩu tạm cho {{name}}. Sinh viên phải đổi mật khẩu khi đăng nhập lại; các phiên đang mở bị đăng xuất.', { name: confirm?.m?.displayName })}
+        confirmLabel={t('Đặt lại')}
         loading={busy}
         onConfirm={() => confirm?.m && resetPassword(confirm.m)}
       />
       <ConfirmDialog
         open={confirm?.kind === 'roster'}
         onOpenChange={(v) => !v && setConfirm(null)}
-        title="Bỏ khỏi danh sách lớp?"
-        description={`Mã ${confirm?.studentId} sẽ không được thêm vào lớp này khi đăng ký.`}
+        title={t('Bỏ khỏi danh sách lớp?')}
+        description={t('Mã {{studentId}} sẽ không được thêm vào lớp này khi đăng ký.', { studentId: confirm?.studentId })}
         danger
         loading={busy}
-        onConfirm={() => confirm?.studentId && run(() => api.del(`${base}/roster/${confirm.studentId}`), 'Đã bỏ khỏi danh sách')}
+        onConfirm={() => confirm?.studentId && run(() => api.del(`${base}/roster/${confirm.studentId}`), t('Đã bỏ khỏi danh sách'))}
       />
-      <Dialog open={!!tempPw} onOpenChange={(v) => !v && setTempPw(null)} title="Mật khẩu tạm thời" size="sm" footer={<Button onClick={() => setTempPw(null)}>Đã ghi lại</Button>}>
+      <Dialog open={!!tempPw} onOpenChange={(v) => !v && setTempPw(null)} title={t('Mật khẩu tạm thời')} size="sm" footer={<Button onClick={() => setTempPw(null)}>{t('Đã ghi lại')}</Button>}>
         <p className="text-sm">{tempPw?.name}</p>
         <p className="mt-3 select-all rounded-lg bg-surface-2 py-3 text-center font-mono text-2xl font-bold tracking-widest">{tempPw?.pw}</p>
-        <Alert tone="warning">Mật khẩu chỉ hiển thị một lần. Hãy đưa trực tiếp cho sinh viên.</Alert>
+        <Alert tone="warning">{t('Mật khẩu chỉ hiển thị một lần. Hãy đưa trực tiếp cho sinh viên.')}</Alert>
       </Dialog>
       <MoveDialog member={moving} onClose={() => setMoving(null)} from={cls} />
     </div>
@@ -219,6 +221,7 @@ export function StudentsPage() {
 }
 
 function MoveDialog({ member, onClose, from }: { member: MemberDoc | null; onClose: () => void; from: ClassDoc }) {
+  const { t } = useTranslation();
   const classes = useApi<{ items: ClassDoc[] }>(member ? '/classes' : null);
   const [to, setTo] = useState('');
   const [busy, setBusy] = useState(false);
@@ -229,7 +232,7 @@ function MoveDialog({ member, onClose, from }: { member: MemberDoc | null; onClo
     try {
       await api.post(`/classes/${from.classId}/members/${member.uid}/move`, { toClassId: to });
       await invalidate(`/classes/${from.classId}`, `/classes/${to}`, '/teach');
-      toast.success('Đã chuyển lớp');
+      toast.success(t('Đã chuyển lớp'));
       onClose();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -241,19 +244,19 @@ function MoveDialog({ member, onClose, from }: { member: MemberDoc | null; onClo
     <Dialog
       open={!!member}
       onOpenChange={(v) => !v && onClose()}
-      title="Chuyển sinh viên sang lớp khác"
+      title={t('Chuyển sinh viên sang lớp khác')}
       description={member ? `${member.displayName} (${member.studentId})` : ''}
       size="sm"
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Hủy</Button>
-          <Button onClick={move} loading={busy} disabled={!to}>Chuyển lớp</Button>
+          <Button variant="outline" onClick={onClose}>{t('Hủy')}</Button>
+          <Button onClick={move} loading={busy} disabled={!to}>{t('Chuyển lớp')}</Button>
         </>
       }
     >
-      <Field label="Lớp đích" htmlFor="to" hint="Chỉ hiển thị các lớp bạn phụ trách">
+      <Field label={t('Lớp đích')} htmlFor="to" hint={t('Chỉ hiển thị các lớp bạn phụ trách')}>
         <Select id="to" value={to} onChange={(e) => setTo(e.target.value)}>
-          <option value="">— Chọn lớp —</option>
+          <option value="">{t('— Chọn lớp —')}</option>
           {options.map((c) => (
             <option key={c.classId} value={c.classId}>{c.classCode} – {c.courseName} ({c.semester})</option>
           ))}

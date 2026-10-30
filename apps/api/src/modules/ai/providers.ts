@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import type { AiProvider } from '@classinteract/shared';
 import { config } from '../../config';
+import { getProviderKey } from '../../lib/secrets';
 import { type AiAdapter, AiProviderError, type StructuredRequest, type StructuredResult } from './types';
 
 function parseJson(provider: AiProvider, text: string) {
@@ -24,12 +25,26 @@ function parseJson(provider: AiProvider, text: string) {
 const isRetryableStatus = (s?: number) => !s || s === 408 || s === 409 || s === 429 || s >= 500;
 
 // ---------- Anthropic Claude (Messages API) ----------
-let anthropicClient: Anthropic | null = null;
+const clients = new Map<string, unknown>();
+/** One SDK client per (provider, key); a key change creates a new client. */
+function clientFor<T>(provider: AiProvider, key: string, make: () => T): T {
+  const id = `${provider}:${key}`;
+  if (!clients.has(id)) clients.set(id, make());
+  return clients.get(id) as T;
+}
+
+async function requireKey(provider: AiProvider) {
+  const key = await getProviderKey(provider);
+  if (!key) throw new AiProviderError(provider, 'Chưa có API key', false);
+  return key;
+}
+
 export const anthropicAdapter: AiAdapter = {
   provider: 'anthropic',
-  isConfigured: () => !!config.ai.anthropicKey,
+  isConfigured: async () => !!(await getProviderKey('anthropic')),
   async generateStructured(req: StructuredRequest): Promise<StructuredResult> {
-    anthropicClient ??= new Anthropic({ apiKey: config.ai.anthropicKey, maxRetries: 1 });
+    const key = await requireKey('anthropic');
+    const anthropicClient = clientFor('anthropic', key, () => new Anthropic({ apiKey: key, maxRetries: 1 }));
     try {
       const res = await anthropicClient.beta.messages.create(
         {
@@ -67,12 +82,12 @@ export const anthropicAdapter: AiAdapter = {
 };
 
 // ---------- OpenAI (Responses API) ----------
-let openaiClient: OpenAI | null = null;
 export const openaiAdapter: AiAdapter = {
   provider: 'openai',
-  isConfigured: () => !!config.ai.openaiKey,
+  isConfigured: async () => !!(await getProviderKey('openai')),
   async generateStructured(req: StructuredRequest): Promise<StructuredResult> {
-    openaiClient ??= new OpenAI({ apiKey: config.ai.openaiKey, maxRetries: 1 });
+    const key = await requireKey('openai');
+    const openaiClient = clientFor('openai', key, () => new OpenAI({ apiKey: key, maxRetries: 1 }));
     try {
       const res = await openaiClient.responses.create(
         {
@@ -103,12 +118,12 @@ export const openaiAdapter: AiAdapter = {
 };
 
 // ---------- Google Gemini (@google/genai) ----------
-let geminiClient: GoogleGenAI | null = null;
 export const geminiAdapter: AiAdapter = {
   provider: 'gemini',
-  isConfigured: () => !!config.ai.geminiKey,
+  isConfigured: async () => !!(await getProviderKey('gemini')),
   async generateStructured(req: StructuredRequest): Promise<StructuredResult> {
-    geminiClient ??= new GoogleGenAI({ apiKey: config.ai.geminiKey });
+    const key = await requireKey('gemini');
+    const geminiClient = clientFor('gemini', key, () => new GoogleGenAI({ apiKey: key }));
     try {
       const res = await geminiClient.models.generateContent({
         model: req.model,
@@ -139,7 +154,7 @@ export const geminiAdapter: AiAdapter = {
 /** Deterministic provider for tests and demos without API keys (AI_FAKE_PROVIDER=1). */
 export const fakeAdapter = (provider: AiProvider): AiAdapter => ({
   provider,
-  isConfigured: () => true,
+  isConfigured: async () => true,
   async generateStructured(req) {
     if (req.user.includes('[[FAIL]]')) throw new AiProviderError(provider, 'Fake provider failure', true);
     return {

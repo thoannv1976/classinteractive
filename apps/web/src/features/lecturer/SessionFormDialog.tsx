@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { SessionDoc } from '@classinteract/shared';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ export function SessionFormDialog({
   session?: SessionDoc | null;
   nextNumber: number;
 }) {
+  const { t } = useTranslation();
   const [f, setF] = useState({ title: '', description: '', date: today(), plannedStart: '07:00', plannedEnd: '09:30', sessionNumber: nextNumber });
   const [topics, setTopics] = useState<string[]>([]);
   const [topic, setTopic] = useState('');
@@ -40,8 +42,8 @@ export function SessionFormDialog({
   }, [open, session, nextNumber]);
 
   const addTopic = () => {
-    const t = topic.trim();
-    if (t && !topics.includes(t)) setTopics((x) => [...x, t]);
+    const v = topic.trim();
+    if (v && !topics.includes(v)) setTopics((x) => [...x, v]);
     setTopic('');
   };
 
@@ -52,7 +54,7 @@ export function SessionFormDialog({
       if (session) await api.patch(`/classes/${classId}/sessions/${session.sessionId}`, body);
       else await api.post(`/classes/${classId}/sessions`, body);
       await invalidate(`/classes/${classId}`);
-      toast.success(session ? 'Đã cập nhật buổi học' : 'Đã tạo buổi học');
+      toast.success(session ? t('Đã cập nhật buổi học') : t('Đã tạo buổi học'));
       onOpenChange(false);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -66,35 +68,35 @@ export function SessionFormDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={session ? 'Sửa buổi học' : 'Tạo buổi học'}
+      title={session ? t('Sửa buổi học') : t('Tạo buổi học')}
       size="lg"
       footer={
         <>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-          <Button onClick={save} loading={saving} disabled={!f.title.trim()}>Lưu</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('Hủy')}</Button>
+          <Button onClick={save} loading={saving} disabled={!f.title.trim()}>{t('Lưu')}</Button>
         </>
       }
     >
       <div className="grid gap-4 sm:grid-cols-4">
-        <Field label="Buổi số" htmlFor="num">
+        <Field label={t('Buổi số')} htmlFor="num">
           <Input id="num" type="number" min={1} value={f.sessionNumber} onChange={set('sessionNumber')} />
         </Field>
-        <Field label="Tên buổi học" htmlFor="title" className="sm:col-span-3">
-          <Input id="title" value={f.title} onChange={set('title')} placeholder="Mô hình kinh doanh nền tảng số" />
+        <Field label={t('Tên buổi học')} htmlFor="title" className="sm:col-span-3">
+          <Input id="title" value={f.title} onChange={set('title')} placeholder={t('Mô hình kinh doanh nền tảng số')} />
         </Field>
-        <Field label="Ngày" htmlFor="date" className="sm:col-span-2">
+        <Field label={t('Ngày')} htmlFor="date" className="sm:col-span-2">
           <Input id="date" type="date" value={f.date} onChange={set('date')} />
         </Field>
-        <Field label="Bắt đầu" htmlFor="start">
+        <Field label={t('Bắt đầu')} htmlFor="start">
           <Input id="start" type="time" value={f.plannedStart} onChange={set('plannedStart')} />
         </Field>
-        <Field label="Kết thúc" htmlFor="end">
+        <Field label={t('Kết thúc')} htmlFor="end">
           <Input id="end" type="time" value={f.plannedEnd} onChange={set('plannedEnd')} />
         </Field>
-        <Field label="Nội dung chính" htmlFor="desc" className="sm:col-span-4">
+        <Field label={t('Nội dung chính')} htmlFor="desc" className="sm:col-span-4">
           <Textarea id="desc" value={f.description} onChange={set('description')} maxLength={3000} />
         </Field>
-        <Field label="Chủ đề kiến thức" htmlFor="topic" hint="Sinh viên gắn chủ đề khi đặt câu hỏi. Nhấn Enter để thêm." className="sm:col-span-4">
+        <Field label={t('Chủ đề kiến thức')} htmlFor="topic" hint={t('Sinh viên gắn chủ đề khi đặt câu hỏi. Nhấn Enter để thêm.')} className="sm:col-span-4">
           <div className="flex gap-2">
             <Input
               id="topic"
@@ -106,17 +108,17 @@ export function SessionFormDialog({
                   addTopic();
                 }
               }}
-              placeholder="VD: Revenue Models"
+              placeholder={t('VD: Revenue Models')}
               maxLength={80}
             />
-            <Button variant="outline" onClick={addTopic}>Thêm</Button>
+            <Button variant="outline" onClick={addTopic}>{t('Thêm')}</Button>
           </div>
           {topics.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {topics.map((t) => (
-                <span key={t} className="inline-flex items-center gap-1 rounded-md bg-secondary-soft px-2 py-1 text-xs font-medium text-secondary">
-                  #{t}
-                  <button onClick={() => setTopics((x) => x.filter((y) => y !== t))} aria-label={`Bỏ chủ đề ${t}`}>
+              {topics.map((tp) => (
+                <span key={tp} className="inline-flex items-center gap-1 rounded-md bg-secondary-soft px-2 py-1 text-xs font-medium text-secondary">
+                  #{tp}
+                  <button onClick={() => setTopics((x) => x.filter((y) => y !== tp))} aria-label={t('Bỏ chủ đề {{topic}}', { topic: tp })}>
                     <X className="h-3 w-3" />
                   </button>
                 </span>

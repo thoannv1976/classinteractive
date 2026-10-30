@@ -264,7 +264,7 @@ export default async function postRoutes(app: FastifyInstance) {
       if (isAuthor && !a.canModerate) {
         const created = toMillis(post.createdAt) ?? 0;
         if (Date.now() - created > a.cls.settings.editWindowMinutes * 60000) {
-          throw conflict(`Chỉ được sửa trong ${a.cls.settings.editWindowMinutes} phút sau khi gửi`, 'EDIT_WINDOW_PASSED');
+          throw conflict('Chỉ được sửa trong {{n}} phút sau khi gửi', 'EDIT_WINDOW_PASSED', { n: a.cls.settings.editWindowMinutes });
         }
       }
       const update: Record<string, unknown> = { updatedAt: now(), editedAt: now() };
@@ -342,6 +342,7 @@ export default async function postRoutes(app: FastifyInstance) {
         type: 'lecturer_reply',
         title: 'Câu trả lời của bạn được giảng viên xác nhận',
         body: 'Giảng viên đã đánh dấu câu trả lời của bạn là phù hợp.',
+        bodyTranslatable: true,
         link: `/classes/${p.classId}/sessions/${p.sessionId}`,
       });
     }
@@ -436,7 +437,7 @@ async function setVisibility(p: Params, a: ClassAccess, me: UserDoc, status: 'vi
       if (author?.authorUid !== me.uid) throw forbidden('Bạn chỉ được xóa bài của mình');
       const created = toMillis(post.createdAt) ?? 0;
       if (!a.canModerate && Date.now() - created > a.cls.settings.editWindowMinutes * 60000) {
-        throw conflict(`Chỉ được xóa trong ${a.cls.settings.editWindowMinutes} phút sau khi gửi`, 'EDIT_WINDOW_PASSED');
+        throw conflict('Chỉ được xóa trong {{n}} phút sau khi gửi', 'EDIT_WINDOW_PASSED', { n: a.cls.settings.editWindowMinutes });
       }
     }
     if (post.moderationStatus === status) return;

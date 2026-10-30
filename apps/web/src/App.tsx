@@ -1,5 +1,6 @@
 import { Suspense, lazy, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import type { UserRole } from '@classinteract/shared';
 import { isAdminRole } from '@classinteract/shared';
 import { AppShell } from '@/components/layout/AppShell';
@@ -102,11 +103,12 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function RequireRole({ roles, children }: { roles: UserRole[]; children: ReactNode }) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   if (!user || !roles.includes(user.role))
     return (
       <EmptyState
-        title="Bạn không có quyền truy cập trang này"
-        description="Trang này dành cho vai trò khác."
+        title={t('Bạn không có quyền truy cập trang này')}
+        description={t('Trang này dành cho vai trò khác.')}
       />
     );
   return <>{children}</>;
@@ -136,6 +138,7 @@ const STAFF: UserRole[] = ['lecturer', 'admin', 'superadmin'];
 const ADMINS: UserRole[] = ['admin', 'superadmin'];
 
 export function App() {
+  const { t } = useTranslation();
   return (
     <Suspense
       fallback={
@@ -273,7 +276,7 @@ export function App() {
               </RequireRole>
             }
           />
-          <Route path="*" element={<EmptyState title="Không tìm thấy trang" />} />
+          <Route path="*" element={<EmptyState title={t('Không tìm thấy trang')} />} />
         </Route>
       </Routes>
     </Suspense>

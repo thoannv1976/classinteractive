@@ -2,11 +2,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { LABELS_EN } from '@classinteract/shared';
+import { EN as SHARED_EN } from '@classinteract/shared';
 import { EN_DICTIONARY } from './en';
 
 const SRC = fileURLToPath(new URL('..', import.meta.url));
-const EN = { ...LABELS_EN, ...EN_DICTIONARY };
+const EN = { ...SHARED_EN, ...EN_DICTIONARY };
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -23,7 +23,11 @@ function keysIn(code: string) {
   let m: RegExpExecArray | null;
   while ((m = re.exec(code))) {
     if (m[1] === '`' && m[2]!.includes('${')) continue; // dynamic – not checkable
-    keys.push(m[2]!.replace(/\\(['"`])/g, '$1').replace(/\\n/g, '\n'));
+    const key = m[2]!.replace(/\\(['"`])/g, '$1').replace(/\\n/g, '\n');
+    keys.push(key);
+    // t('…', { context: 'x' }) needs the variant '…_x'
+    const ctx = /^\s*,\s*\{[^}]*\bcontext:\s*'(\w+)'/.exec(code.slice(m.index + m[0].length, m.index + m[0].length + 120));
+    if (ctx) keys.push(`${key}_${ctx[1]}`);
   }
   return keys;
 }
@@ -40,7 +44,7 @@ describe('i18n coverage', () => {
   });
 
   it('no English entry is left untranslated', () => {
-    const same = Object.entries(EN).filter(([k, v]) => VIETNAMESE.test(v) || !v.trim()).map(([k]) => k);
+    const same = Object.entries(EN).filter(([_k, v]) => VIETNAMESE.test(v) || !v.trim()).map(([k]) => k);
     expect(same).toEqual([]);
   });
 });

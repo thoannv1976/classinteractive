@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, Download, Info, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ const heat = (v: number | undefined, joined: boolean) => {
 };
 
 export function AnalyticsPage() {
+  const { t } = useTranslation();
   const { cls } = useClassCtx();
   const { data, isLoading, error } = useApi<Data>(`/classes/${cls.classId}/analytics/students`);
   const [q, setQ] = useState('');
@@ -69,8 +71,8 @@ export function AnalyticsPage() {
   // Optional session filter: recompute interactions from the heatmap for one session.
   const rows = useMemo(() => {
     let r = data?.rows ?? [];
-    const t = q.trim().toLowerCase();
-    if (t) r = r.filter((x) => `${x.studentId} ${x.displayName}`.toLowerCase().includes(t));
+    const needle = q.trim().toLowerCase();
+    if (needle) r = r.filter((x) => `${x.studentId} ${x.displayName}`.toLowerCase().includes(needle));
     if (range !== 'all' && data) r = r.map((x) => ({ ...x, interactions: data.heatmap[x.uid]?.[range] ?? 0 }));
     return [...r].sort((a, b) => {
       const va = a[sort.key] ?? -1;
@@ -106,48 +108,48 @@ export function AnalyticsPage() {
       <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-primary-soft/60 px-4 py-3 text-sm text-blue-900">
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Tỷ lệ được tính theo cơ hội thực tế: {data.opportunities.sessionsHeld} buổi đã diễn ra và {data.opportunities.activitiesOpened} hoạt động đã mở. Đây là số liệu tham khảo để giảng viên quan tâm, không tự động đưa vào bảng điểm.
+          {t('Tỷ lệ được tính theo cơ hội thực tế: {{sessions}} buổi đã diễn ra và {{activities}} hoạt động đã mở. Đây là số liệu tham khảo để giảng viên quan tâm, không tự động đưa vào bảng điểm.', { sessions: data.opportunities.sessionsHeld, activities: data.opportunities.activitiesOpened })}
         </p>
       </div>
       <Card>
         <CardHeader
-          title="Bảng tham gia của sinh viên"
+          title={t('Bảng tham gia của sinh viên')}
           actions={
             <Button variant="outline" onClick={exportXlsx} loading={downloading}>
-              <Download className="h-4 w-4" /> Xuất Excel
+              <Download className="h-4 w-4" /> {t('Xuất Excel')}
             </Button>
           }
         />
         <div className="flex flex-wrap gap-2 px-4 pt-4 sm:px-5">
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm sinh viên" className="pl-9" aria-label="Tìm sinh viên" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Tìm sinh viên')} className="pl-9" aria-label={t('Tìm sinh viên')} />
           </div>
-          <Select value={range} onChange={(e) => setRange(e.target.value)} className="w-auto" aria-label="Lọc theo buổi">
-            <option value="all">Cả học kỳ</option>
+          <Select value={range} onChange={(e) => setRange(e.target.value)} className="w-auto" aria-label={t('Lọc theo buổi')}>
+            <option value="all">{t('Cả học kỳ')}</option>
             {data.sessions.map((s) => (
-              <option key={s.sessionId} value={s.sessionId}>Tương tác trong buổi {s.sessionNumber}</option>
+              <option key={s.sessionId} value={s.sessionId}>{t('Tương tác trong buổi {{n}}', { n: s.sessionNumber })}</option>
             ))}
           </Select>
         </div>
         <CardBody className="p-0 pt-3 sm:p-0 sm:pt-3">
           {!rows.length ? (
-            <EmptyState title="Chưa có sinh viên" />
+            <EmptyState title={t('Chưa có sinh viên')} />
           ) : (
             <Table>
               <thead>
                 <tr>
-                  <Th>STT</Th>
-                  {th('studentId', 'Mã SV', false)}
-                  {th('displayName', 'Họ tên', false)}
-                  {th('sessionsJoined', 'Số buổi')}
-                  {th('questions', 'Câu hỏi')}
-                  {th('answers', 'Trả lời')}
-                  {th('activitiesCompleted', 'Hoạt động')}
-                  {th('topicsCovered', 'Chủ đề')}
-                  {th('consistency', 'Đều đặn')}
-                  {th('interactions', range === 'all' ? 'Tổng tương tác' : 'Tương tác buổi')}
-                  <Th>Gần nhất</Th>
+                  <Th>{t('STT')}</Th>
+                  {th('studentId', t('Mã SV'), false)}
+                  {th('displayName', t('Họ tên'), false)}
+                  {th('sessionsJoined', t('Số buổi'))}
+                  {th('questions', t('Câu hỏi', { context: 'n' }))}
+                  {th('answers', t('Trả lời', { context: 'n' }))}
+                  {th('activitiesCompleted', t('Hoạt động'))}
+                  {th('topicsCovered', t('Chủ đề'))}
+                  {th('consistency', t('Đều đặn'))}
+                  {th('interactions', range === 'all' ? t('Tổng tương tác') : t('Tương tác buổi'))}
+                  <Th>{t('Gần nhất')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -174,18 +176,18 @@ export function AnalyticsPage() {
         </CardBody>
       </Card>
       <Card>
-        <CardHeader title="Bản đồ nhiệt tham gia" description="Số tương tác của từng sinh viên trong mỗi buổi học. Ô xám: không có mặt." />
+        <CardHeader title={t('Bản đồ nhiệt tham gia')} description={t('Số tương tác của từng sinh viên trong mỗi buổi học. Ô xám: không có mặt.')} />
         <CardBody>
           {!data.sessions.length ? (
-            <EmptyState title="Chưa có buổi học nào diễn ra" />
+            <EmptyState title={t('Chưa có buổi học nào diễn ra')} />
           ) : (
             <div className="overflow-x-auto">
               <table className="text-xs">
                 <thead>
                   <tr>
-                    <th className="sticky left-0 bg-surface pr-3 text-left font-medium text-muted">Sinh viên</th>
+                    <th className="sticky left-0 bg-surface pr-3 text-left font-medium text-muted">{t('Sinh viên', { context: 'n' })}</th>
                     {data.sessions.map((s) => (
-                      <th key={s.sessionId} className="px-0.5 font-medium text-muted" title={`${s.title} – ${formatDate(s.date)}`}>B{s.sessionNumber}</th>
+                      <th key={s.sessionId} className="px-0.5 font-medium text-muted" title={`${s.title} – ${formatDate(s.date)}`}>{t('B{{n}}', { n: s.sessionNumber })}</th>
                     ))}
                   </tr>
                 </thead>
@@ -198,7 +200,7 @@ export function AnalyticsPage() {
                         const joined = (data.joined[r.uid] ?? []).includes(s.sessionId);
                         return (
                           <td key={s.sessionId} className="p-0.5">
-                            <div className={cn('flex h-7 w-9 items-center justify-center rounded', heat(v, joined))} title={`${r.displayName} – Buổi ${s.sessionNumber}: ${joined ? (v ?? 0) + ' tương tác' : 'không tham gia'}`}>
+                            <div className={cn('flex h-7 w-9 items-center justify-center rounded', heat(v, joined))} title={`${r.displayName} – ${t('Buổi {{n}}', { n: s.sessionNumber })}: ${joined ? t('{{count}} tương tác', { count: v ?? 0 }) : t('không tham gia')}`}>
                               {joined ? (v ?? 0) : ''}
                             </div>
                           </td>

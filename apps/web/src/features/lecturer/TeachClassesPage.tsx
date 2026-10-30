@@ -1,5 +1,6 @@
 import { GraduationCap, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
 import type { ClassDoc } from '@classinteract/shared';
 import { CLASS_STATUS_LABELS, isAdminRole } from '@classinteract/shared';
@@ -14,6 +15,7 @@ import { useApi } from '@/lib/query';
 import { CreateClassDialog } from './CreateClassDialog';
 
 export function TeachClassesPage() {
+  const { t } = useTranslation();
   const me = useMe();
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
@@ -26,15 +28,15 @@ export function TeachClassesPage() {
   return (
     <div>
       <PageHeader
-        title={isAdminRole(me.role) ? 'Tất cả lớp học phần' : 'Lớp giảng dạy'}
+        title={isAdminRole(me.role) ? t('Tất cả lớp học phần') : t('Lớp giảng dạy')}
         actions={
           <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" /> Tạo lớp
+            <Plus className="h-4 w-4" /> {t('Tạo lớp')}
           </Button>
         }
       />
       <div className="mb-4 max-w-sm">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo mã lớp, học phần, giảng viên…" aria-label="Tìm lớp" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Tìm theo mã lớp, học phần, giảng viên…')} aria-label={t('Tìm lớp')} />
       </div>
       <Card>
         {isLoading ? (
@@ -42,18 +44,18 @@ export function TeachClassesPage() {
         ) : error ? (
           <ErrorState error={error} onRetry={() => refetch()} />
         ) : !items.length ? (
-          <EmptyState icon={<GraduationCap className="h-6 w-6" />} title="Chưa có lớp" action={<Button onClick={() => setOpen(true)}>Tạo lớp đầu tiên</Button>} />
+          <EmptyState icon={<GraduationCap className="h-6 w-6" />} title={t('Chưa có lớp')} action={<Button onClick={() => setOpen(true)}>{t('Tạo lớp đầu tiên')}</Button>} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>Mã lớp</Th>
-                <Th>Học phần</Th>
-                <Th>Học kỳ</Th>
-                <Th>Giảng viên</Th>
-                <Th className="text-right">Sinh viên</Th>
-                <Th className="text-right">Buổi</Th>
-                <Th>Trạng thái</Th>
+                <Th>{t('Mã lớp')}</Th>
+                <Th>{t('Học phần')}</Th>
+                <Th>{t('Học kỳ')}</Th>
+                <Th>{t('Giảng viên')}</Th>
+                <Th className="text-right">{t('Sinh viên', { context: 'n' })}</Th>
+                <Th className="text-right">{t('Buổi')}</Th>
+                <Th>{t('Trạng thái')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -64,10 +66,10 @@ export function TeachClassesPage() {
                   </Td>
                   <Td>{c.courseName}</Td>
                   <Td>{c.semester} · {c.academicYear}</Td>
-                  <Td className="max-w-[220px] truncate">{c.lecturerNames.join(', ') || <span className="text-danger">Chưa phân công</span>}</Td>
+                  <Td className="max-w-[220px] truncate">{c.lecturerNames.join(', ') || <span className="text-danger">{t('Chưa phân công')}</span>}</Td>
                   <Td className="text-right tabular-nums">{c.studentCount}</Td>
                   <Td className="text-right tabular-nums">{c.sessionCount}</Td>
-                  <Td><Badge tone={c.status === 'active' ? 'success' : 'warning'}>{CLASS_STATUS_LABELS[c.status]}</Badge></Td>
+                  <Td><Badge tone={c.status === 'active' ? 'success' : 'warning'}>{t(CLASS_STATUS_LABELS[c.status])}</Badge></Td>
                 </tr>
               ))}
             </tbody>

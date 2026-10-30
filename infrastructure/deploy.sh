@@ -120,14 +120,15 @@ if ! secret_exists classinteract-setup-token; then
   ok "Đã tạo secret classinteract-setup-token"
 fi
 SECRETS="SETUP_TOKEN=classinteract-setup-token:latest"
-for PAIR in "anthropic-api-key:ANTHROPIC_API_KEY:Anthropic Claude" "openai-api-key:OPENAI_API_KEY:OpenAI" "gemini-api-key:GEMINI_API_KEY:Google Gemini"; do
-  NAME="${PAIR%%:*}"; REST="${PAIR#*:}"; VAR="${REST%%:*}"; LABEL="${REST#*:}"
+# AI keys are entered by the super administrator in the app (Quản trị → Cấu hình AI). The API
+# writes them as new secret versions, so it may add versions to these three secrets only.
+for NAME in anthropic-api-key openai-api-key gemini-api-key; do
   if ! secret_exists "$NAME"; then
-    read -r -s -p "    API key $LABEL (Enter để bỏ qua): " KEY; echo
-    if [ -n "$KEY" ]; then put_secret "$NAME" "$KEY"; ok "Đã lưu $NAME vào Secret Manager"; fi
+    gcloud secrets create "$NAME" --replication-policy=automatic >/dev/null
   fi
-  if secret_exists "$NAME"; then SECRETS="$SECRETS,$VAR=$NAME:latest"; fi
+  gcloud secrets add-iam-policy-binding "$NAME" --member="serviceAccount:$SA" --role=roles/secretmanager.secretVersionAdder >/dev/null
 done
+ok "Secret cho API key AI sẵn sàng (nhập key trong ứng dụng: Quản trị → Cấu hình AI)"
 echo "  Biến môi trường lấy từ Secret Manager: $(echo "$SECRETS" | sed -E 's/=[^,]+//g')"
 
 # -----------------------------------------------------------------------------

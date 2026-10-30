@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import type { ClassDoc, NotificationDoc } from '@classinteract/shared';
 import { ROLE_LABELS, isAdminRole } from '@classinteract/shared';
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
 import { Avatar } from '@/components/ui/misc';
 import { Menu, MenuItem, MenuSeparator } from '@/components/ui/menu';
 import { useAuth, useMe } from '@/lib/auth';
@@ -25,6 +27,7 @@ import { db } from '@/lib/firebase';
 import { useLiveQuery } from '@/lib/firestore';
 import { useApi } from '@/lib/query';
 import { cn } from '@/lib/utils';
+import { tk } from '@/i18n';
 
 interface NavItem {
   to: string;
@@ -39,31 +42,31 @@ function useNav(): { main: NavItem[]; mobile: NavItem[] } {
     const i = (C: typeof Home) => <C className="h-5 w-5" aria-hidden />;
     if (me.role === 'student') {
       const main = [
-        { to: '/home', label: 'Trang chủ', icon: i(Home) },
-        { to: '/classes', label: 'Lớp học', icon: i(BookOpen) },
-        { to: '/session', label: 'Buổi học', icon: i(Radio) },
-        { to: '/participation', label: 'Tham gia của tôi', icon: i(BarChart3) },
-        { to: '/notifications', label: 'Thông báo', icon: i(Bell) },
-        { to: '/profile', label: 'Hồ sơ', icon: i(User) },
+        { to: '/home', label: tk('Trang chủ'), icon: i(Home) },
+        { to: '/classes', label: tk('Lớp học'), icon: i(BookOpen) },
+        { to: '/session', label: tk('Buổi học'), icon: i(Radio) },
+        { to: '/participation', label: tk('Tham gia của tôi'), icon: i(BarChart3) },
+        { to: '/notifications', label: tk('Thông báo'), icon: i(Bell) },
+        { to: '/profile', label: tk('Hồ sơ'), icon: i(User) },
       ];
       return { main, mobile: main.filter((n) => n.to !== '/participation') };
     }
     const teach: NavItem[] = [
-      { to: '/teach', label: 'Tổng quan', icon: i(LayoutDashboard), end: true },
-      { to: '/teach/classes', label: 'Lớp giảng dạy', icon: i(GraduationCap) },
+      { to: '/teach', label: tk('Tổng quan'), icon: i(LayoutDashboard), end: true },
+      { to: '/teach/classes', label: tk('Lớp giảng dạy'), icon: i(GraduationCap) },
     ];
     const admin: NavItem[] = isAdminRole(me.role)
       ? [
-          { to: '/admin', label: 'Quản trị', icon: i(Settings), end: true },
-          { to: '/admin/users', label: 'Người dùng', icon: i(Users) },
-          { to: '/admin/classes', label: 'Lớp & học phần', icon: i(BookOpen) },
-          { to: '/admin/ai', label: 'Cấu hình AI', icon: i(Bot) },
-          { to: '/admin/audit', label: 'Nhật ký', icon: i(ScrollText) },
+          { to: '/admin', label: tk('Quản trị'), icon: i(Settings), end: true },
+          { to: '/admin/users', label: tk('Người dùng'), icon: i(Users) },
+          { to: '/admin/classes', label: tk('Lớp & học phần'), icon: i(BookOpen) },
+          { to: '/admin/ai', label: tk('Cấu hình AI'), icon: i(Bot) },
+          { to: '/admin/audit', label: tk('Nhật ký'), icon: i(ScrollText) },
         ]
       : [];
     const common: NavItem[] = [
-      { to: '/notifications', label: 'Thông báo', icon: i(Bell) },
-      { to: '/profile', label: 'Hồ sơ', icon: i(User) },
+      { to: '/notifications', label: tk('Thông báo'), icon: i(Bell) },
+      { to: '/profile', label: tk('Hồ sơ'), icon: i(User) },
     ];
     const main = [...(isAdminRole(me.role) ? admin : []), ...teach, ...common];
     const mobile = isAdminRole(me.role)
@@ -84,14 +87,15 @@ export function useUnreadCount() {
 
 function SidebarClasses() {
   const me = useMe();
+  const { t } = useTranslation();
   const { data } = useApi<{ items: ClassDoc[] }>(me.role === 'student' ? '/classes' : '/classes?all=false');
   const items = (data?.items ?? []).filter((c) => c.status !== 'archived').slice(0, 12);
   if (!items.length) return null;
   const base = me.role === 'student' ? '/classes' : '/teach/classes';
   return (
     <div className="mt-6">
-      <p className="px-3 text-xs font-semibold uppercase tracking-wide text-muted">{me.role === 'student' ? 'Lớp của tôi' : 'Lớp phụ trách'}</p>
-      <nav className="mt-2 space-y-0.5" aria-label="Danh sách lớp">
+      <p className="px-3 text-xs font-semibold uppercase tracking-wide text-muted">{me.role === 'student' ? t('Lớp của tôi') : t('Lớp phụ trách')}</p>
+      <nav className="mt-2 space-y-0.5" aria-label={t('Danh sách lớp')}>
         {items.map((c) => (
           <NavLink
             key={c.classId}
@@ -110,6 +114,7 @@ function SidebarClasses() {
 
 export function AppShell() {
   const me = useMe();
+  const { t } = useTranslation();
   const { logout } = useAuth();
   const { main, mobile } = useNav();
   const unread = useUnreadCount();
@@ -135,7 +140,7 @@ export function AppShell() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
-          <nav className="space-y-0.5" aria-label="Điều hướng chính">
+          <nav className="space-y-0.5" aria-label={t('Điều hướng chính')}>
             {main.map((n) => (
               <NavLink
                 key={n.to}
@@ -149,7 +154,7 @@ export function AppShell() {
                 }
               >
                 {n.icon}
-                {n.label}
+                {t(n.label)}
                 {badge(n)}
               </NavLink>
             ))}
@@ -157,6 +162,7 @@ export function AppShell() {
           <SidebarClasses />
         </div>
         <div className="border-t border-border p-3">
+          <LanguageSwitcher className="mb-2" />
           <Menu
             align="start"
             trigger={
@@ -164,17 +170,17 @@ export function AppShell() {
                 <Avatar name={me.displayName} />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{me.displayName}</span>
-                  <span className="block truncate text-xs text-muted">{me.studentId ?? me.email} · {ROLE_LABELS[me.role]}</span>
+                  <span className="block truncate text-xs text-muted">{me.studentId ?? me.email} · {t(ROLE_LABELS[me.role])}</span>
                 </span>
               </button>
             }
           >
             <MenuItem onSelect={() => navigate('/profile')}>
-              <User className="h-4 w-4" /> Hồ sơ & mật khẩu
+              <User className="h-4 w-4" /> {t('Hồ sơ & mật khẩu')}
             </MenuItem>
             <MenuSeparator />
             <MenuItem danger onSelect={() => void logout()}>
-              <LogOut className="h-4 w-4" /> Đăng xuất
+              <LogOut className="h-4 w-4" /> {t('Đăng xuất')}
             </MenuItem>
           </Menu>
         </div>
@@ -186,9 +192,12 @@ export function AppShell() {
           <img src="/favicon.svg" alt="" className="h-7 w-7" />
           <span className="text-sm font-semibold">ClassInteract AI</span>
         </div>
-        <button onClick={() => void logout()} className="rounded-lg p-2 text-muted hover:bg-slate-100" aria-label="Đăng xuất">
-          <LogOut className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <LanguageSwitcher compact />
+          <button onClick={() => void logout()} className="rounded-lg p-2 text-muted hover:bg-slate-100" aria-label={t('Đăng xuất')}>
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-8">
@@ -198,7 +207,7 @@ export function AppShell() {
       {/* Mobile bottom navigation */}
       <nav
         className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-surface/95 backdrop-blur safe-bottom lg:hidden print:hidden"
-        aria-label="Điều hướng"
+        aria-label={t('Điều hướng')}
       >
         {mobile.map((n) => (
           <NavLink
@@ -210,9 +219,9 @@ export function AppShell() {
             }
           >
             {n.icon}
-            <span className="max-w-full truncate px-1">{n.label}</span>
+            <span className="max-w-full truncate px-1">{t(n.label)}</span>
             {n.to === '/notifications' && unread > 0 && (
-              <span className="absolute right-[calc(50%-18px)] top-1 h-2 w-2 rounded-full bg-accent" aria-label={`${unread} thông báo chưa đọc`} />
+              <span className="absolute right-[calc(50%-18px)] top-1 h-2 w-2 rounded-full bg-accent" aria-label={t('{{n}} thông báo chưa đọc', { n: unread })} />
             )}
           </NavLink>
         ))}

@@ -1,5 +1,6 @@
 import { Bot, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { AiAnswerOutput, AiProvider, PostDoc } from '@classinteract/shared';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ export function AiDraftDialog({
   sessionId: string;
   post: PostDoc | null;
 }) {
+  const { t } = useTranslation();
   const status = useApi<{ enabled: boolean; providers: { provider: AiProvider; configured: boolean; enabled: boolean; model: string }[] }>(open ? '/ai/status' : null);
   const [provider, setProvider] = useState<AiProvider | ''>('');
   const [run, setRun] = useState<RunResult | null>(null);
@@ -75,7 +77,7 @@ export function AiDraftDialog({
     setPublishing(true);
     try {
       await api.post(`/ai/runs/${run.runId}/publish`, { content: text });
-      toast.success('Đã công bố câu trả lời (gắn nhãn AI Generated)');
+      toast.success(t('Đã công bố câu trả lời (gắn nhãn AI Generated)'));
       onOpenChange(false);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -98,29 +100,29 @@ export function AiDraftDialog({
       size="lg"
       title={
         <span className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-violet-600" /> AI đề xuất trả lời
+          <Bot className="h-5 w-5 text-violet-600" /> {t('AI đề xuất trả lời')}
         </span>
       }
-      description="Bản nháp do AI tạo. Hãy kiểm tra, chỉnh sửa trước khi công bố cho sinh viên."
+      description={t('Bản nháp do AI tạo. Hãy kiểm tra, chỉnh sửa trước khi công bố cho sinh viên.')}
       footer={
         <>
-          <Button variant="outline" onClick={discard}>Bỏ bản nháp</Button>
+          <Button variant="outline" onClick={discard}>{t('Bỏ bản nháp')}</Button>
           <Button onClick={publish} loading={publishing} disabled={!run || !text.trim()}>
-            Duyệt và công bố
+            {t('Duyệt và công bố')}
           </Button>
         </>
       }
     >
       {post && (
         <div className="mb-4 rounded-lg bg-surface-2 p-3 text-sm">
-          <p className="text-xs font-medium uppercase text-muted">Câu hỏi</p>
+          <p className="text-xs font-medium uppercase text-muted">{t('Câu hỏi')}</p>
           <p className="mt-1 whitespace-pre-wrap">{post.content}</p>
         </div>
       )}
       <div className="mb-3 flex flex-wrap items-end gap-2">
-        <Field label="Nhà cung cấp" htmlFor="prov" className="min-w-[180px] flex-1">
+        <Field label={t('Nhà cung cấp')} htmlFor="prov" className="min-w-[180px] flex-1">
           <Select id="prov" value={provider} onChange={(e) => setProvider(e.target.value as AiProvider | '')}>
-            <option value="">Mặc định của hệ thống</option>
+            <option value="">{t('Mặc định của hệ thống')}</option>
             {providers.map((p) => (
               <option key={p.provider} value={p.provider}>
                 {PROVIDER_LABEL[p.provider]} · {p.model}
@@ -129,11 +131,11 @@ export function AiDraftDialog({
           </Select>
         </Field>
         <Button variant="outline" onClick={generate} loading={loading}>
-          <RefreshCw className="h-4 w-4" /> Tạo lại
+          <RefreshCw className="h-4 w-4" /> {t('Tạo lại')}
         </Button>
       </div>
-      {loading && <Spinner label="AI đang soạn câu trả lời…" />}
-      {error && <Alert tone="danger" title="Không tạo được bản nháp">{error}</Alert>}
+      {loading && <Spinner label={t('AI đang soạn câu trả lời…')} />}
+      {error && <Alert tone="danger" title={t('Không tạo được bản nháp')}>{error}</Alert>}
       {run && !loading && (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -147,7 +149,7 @@ export function AiDraftDialog({
               ))}
             </div>
           )}
-          <Field label="Nội dung sẽ công bố (có thể chỉnh sửa)" htmlFor="ai-text">
+          <Field label={t('Nội dung sẽ công bố (có thể chỉnh sửa)')} htmlFor="ai-text">
             <Textarea id="ai-text" value={text} onChange={(e) => setText(e.target.value)} className="min-h-[220px]" />
           </Field>
         </div>

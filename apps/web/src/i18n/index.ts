@@ -1,6 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { LABELS_EN, isLang, type Lang } from '@classinteract/shared';
+import { EN as SHARED_EN, isLang, type Lang } from '@classinteract/shared';
 import { EN_DICTIONARY } from './en';
 
 /**
@@ -22,7 +22,7 @@ function initialLang(): Lang {
 }
 
 void i18n.use(initReactI18next).init({
-  resources: { vi: { translation: {} }, en: { translation: { ...LABELS_EN, ...EN_DICTIONARY } } },
+  resources: { vi: { translation: {} }, en: { translation: { ...SHARED_EN, ...EN_DICTIONARY } } },
   lng: initialLang(),
   fallbackLng: 'vi',
   keySeparator: false,

@@ -1,6 +1,7 @@
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +9,7 @@ import { ApiError, api, errorMessage } from '@/lib/api';
 import { RequestJoinDialog } from './RequestJoinDialog';
 
 export function JoinByCode({ initialCode = '' }: { initialCode?: string }) {
+  const { t } = useTranslation();
   const [code, setCode] = useState(initialCode);
   const [loading, setLoading] = useState(false);
   const [notMember, setNotMember] = useState<{ classId: string; classCode: string; className: string } | null>(null);
@@ -41,22 +43,22 @@ export function JoinByCode({ initialCode = '' }: { initialCode?: string }) {
           <Input
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="Nhập mã tham gia (VD: K7M2QX)"
+            placeholder={t('Nhập mã tham gia (VD: K7M2QX)')}
             className="pl-9 font-mono uppercase tracking-widest"
             maxLength={10}
-            aria-label="Mã tham gia buổi học"
+            aria-label={t('Mã tham gia buổi học')}
             autoCapitalize="characters"
           />
         </div>
         <Button type="submit" loading={loading} disabled={!code.trim()}>
-          Tham gia
+          {t('Tham gia')}
         </Button>
       </form>
       <RequestJoinDialog
         open={!!notMember}
         onOpenChange={(v) => !v && setNotMember(null)}
         classId={notMember?.classId}
-        description={notMember ? `Bạn chưa có trong danh sách lớp ${notMember.classCode} – ${notMember.className}. Gửi yêu cầu để giảng viên duyệt?` : undefined}
+        description={notMember ? t('Bạn chưa có trong danh sách lớp {{code}} – {{name}}. Gửi yêu cầu để giảng viên duyệt?', { code: notMember.classCode, name: notMember.className }) : undefined}
       />
     </>
   );

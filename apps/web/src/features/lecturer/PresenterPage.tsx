@@ -2,6 +2,7 @@ import { collection, limit, orderBy, query, where } from 'firebase/firestore';
 import { ChevronUp, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router';
 import type { ActivityDoc, ActivityResultsDoc, PostDoc, SessionDoc, SessionStatsDoc, SubmissionDoc } from '@classinteract/shared';
 import { ACTIVITY_TYPE_LABELS } from '@classinteract/shared';
@@ -21,6 +22,7 @@ type View = 'join' | 'questions' | 'activity' | 'unclear';
  * no author names, no student IDs, only content that is visible to the class.
  */
 export function PresenterPage() {
+  const { t } = useTranslation();
   const { classId = '', sessionId = '' } = useParams();
   const [params] = useSearchParams();
   const session = useLiveDoc<SessionDoc>(sessionPath(classId, sessionId));
@@ -46,17 +48,17 @@ export function PresenterPage() {
         </div>
         <nav className="flex gap-1 rounded-xl bg-white/10 p-1 text-sm">
           {([
-            ['join', 'Tham gia'],
-            ['questions', 'Câu hỏi'],
-            ['activity', 'Hoạt động'],
-            ['unclear', 'Chưa hiểu'],
+            ['join', t('Tham gia')],
+            ['questions', t('Câu hỏi', { context: 'n' })],
+            ['activity', t('Hoạt động')],
+            ['unclear', t('Chưa hiểu', { context: 'tab' })],
           ] as [View, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setView(k)} className={cn('rounded-lg px-4 py-2 font-medium', view === k ? 'bg-white text-slate-900' : 'text-slate-300 hover:text-white')}>
               {l}
             </button>
           ))}
         </nav>
-        <button onClick={() => window.close()} className="rounded-lg p-2 text-slate-400 hover:bg-white/10" aria-label="Đóng">
+        <button onClick={() => window.close()} className="rounded-lg p-2 text-slate-400 hover:bg-white/10" aria-label={t('Đóng')}>
           <X className="h-6 w-6" />
         </button>
       </header>
@@ -69,20 +71,20 @@ export function PresenterPage() {
                   <QRCodeSVG value={joinUrl(s.joinCode)} size={340} level="M" />
                 </div>
                 <div className="text-center lg:text-left">
-                  <p className="text-2xl text-slate-300">Quét QR hoặc vào</p>
+                  <p className="text-2xl text-slate-300">{t('Quét QR hoặc vào')}</p>
                   <p className="mt-2 text-3xl font-medium">{location.host}/join</p>
-                  <p className="mt-8 text-2xl text-slate-300">Mã tham gia</p>
+                  <p className="mt-8 text-2xl text-slate-300">{t('Mã tham gia')}</p>
                   <p className="font-mono text-8xl font-bold tracking-[0.15em] text-orange-400">{s.joinCode}</p>
-                  <p className="mt-8 text-2xl text-slate-300">{stats.data?.attendeeCount ?? 0} sinh viên đã tham gia</p>
+                  <p className="mt-8 text-2xl text-slate-300">{t('{{count}} sinh viên đã tham gia', { count: stats.data?.attendeeCount ?? 0 })}</p>
                 </div>
               </>
             ) : (
-              <p className="text-3xl text-slate-300">Buổi học chưa mở hoặc đã kết thúc.</p>
+              <p className="text-3xl text-slate-300">{t('Buổi học chưa mở hoặc đã kết thúc.')}</p>
             )}
           </div>
         )}
-        {view === 'questions' && <QuestionWall posts={topQuestions} empty="Chưa có câu hỏi" />}
-        {view === 'unclear' && <QuestionWall posts={unclear} empty="Chưa có nội dung sinh viên đánh dấu cần giải thích" showNeed />}
+        {view === 'questions' && <QuestionWall posts={topQuestions} empty={t('Chưa có câu hỏi')} />}
+        {view === 'unclear' && <QuestionWall posts={unclear} empty={t('Chưa có nội dung sinh viên đánh dấu cần giải thích')} showNeed />}
         {view === 'activity' && (
           <div className="w-full max-w-5xl">
             {acts.data.length > 1 && (
@@ -94,7 +96,7 @@ export function PresenterPage() {
                 ))}
               </div>
             )}
-            {activity ? <ActivityBoard classId={classId} sessionId={sessionId} activity={activity} /> : <p className="text-center text-3xl text-slate-300">Chưa có hoạt động</p>}
+            {activity ? <ActivityBoard classId={classId} sessionId={sessionId} activity={activity} /> : <p className="text-center text-3xl text-slate-300">{t('Chưa có hoạt động')}</p>}
           </div>
         )}
       </main>
@@ -103,6 +105,7 @@ export function PresenterPage() {
 }
 
 function QuestionWall({ posts, empty, showNeed }: { posts: PostDoc[]; empty: string; showNeed?: boolean }) {
+  const { t } = useTranslation();
   if (!posts.length) return <p className="text-3xl text-slate-300">{empty}</p>;
   return (
     <ul className="grid w-full max-w-6xl gap-5 md:grid-cols-2">
@@ -111,7 +114,7 @@ function QuestionWall({ posts, empty, showNeed }: { posts: PostDoc[]; empty: str
           <p className="text-2xl leading-snug">{p.content}</p>
           <div className="mt-4 flex gap-4 text-lg text-slate-300">
             <span className="flex items-center gap-1"><ChevronUp className="h-6 w-6" /> {p.voteCount}</span>
-            {showNeed && <span>❓ {p.reactionCounts?.need_explanation ?? 0} cần giải thích</span>}
+            {showNeed && <span>❓ {t('{{count}} cần giải thích', { count: p.reactionCounts?.need_explanation ?? 0 })}</span>}
             <span>💬 {p.replyCount}</span>
           </div>
         </li>
@@ -121,6 +124,7 @@ function QuestionWall({ posts, empty, showNeed }: { posts: PostDoc[]; empty: str
 }
 
 function ActivityBoard({ classId, sessionId, activity }: { classId: string; sessionId: string; activity: ActivityDoc }) {
+  const { t } = useTranslation();
   const base = `${sessionPath(classId, sessionId)}/activities/${activity.activityId}`;
   const results = useLiveDoc<ActivityResultsDoc>(`${base}/results/summary`);
   const featuredQ = useMemo(
@@ -130,7 +134,7 @@ function ActivityBoard({ classId, sessionId, activity }: { classId: string; sess
   const featured = useLiveQuery<SubmissionDoc>(featuredQ);
   return (
     <div className="rounded-3xl bg-white p-10 text-slate-900">
-      <p className="text-lg font-medium text-blue-700">{ACTIVITY_TYPE_LABELS[activity.type]}</p>
+      <p className="text-lg font-medium text-blue-700">{t(ACTIVITY_TYPE_LABELS[activity.type])}</p>
       <h2 className="mt-1 text-4xl font-semibold">{activity.title}</h2>
       {activity.prompt && <p className="mt-3 whitespace-pre-wrap text-xl text-slate-600">{activity.prompt}</p>}
       <div className="mt-8">
@@ -142,7 +146,7 @@ function ActivityBoard({ classId, sessionId, activity }: { classId: string; sess
               ))}
             </ul>
           ) : (
-            <p className="text-2xl text-slate-500">{results.data?.submissionCount ?? 0} câu trả lời · đánh dấu sao để hiển thị câu trả lời tiêu biểu</p>
+            <p className="text-2xl text-slate-500">{t('{{count}} câu trả lời · đánh dấu sao để hiển thị câu trả lời tiêu biểu', { count: results.data?.submissionCount ?? 0 })}</p>
           )
         ) : (
           <ResultBars activity={activity} results={results.data} large />

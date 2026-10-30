@@ -226,7 +226,9 @@ export default async function classRoutes(app: FastifyInstance) {
       .where('academicYear', '==', input.academicYear)
       .limit(1)
       .get();
-    if (!dup.empty) throw conflict(`Lớp ${input.classCode} đã tồn tại trong ${input.semester} ${input.academicYear}`);
+    if (!dup.empty) {
+      throw conflict('Lớp {{code}} đã tồn tại trong {{semester}} {{year}}', 'CONFLICT', { code: input.classCode, semester: input.semester, year: input.academicYear });
+    }
     const ref = C.classes().doc();
     const doc = {
       classId: ref.id,
@@ -429,7 +431,8 @@ export default async function classRoutes(app: FastifyInstance) {
     await notify(cls.lecturerIds, {
       type: 'enrollment_request',
       title: 'Yêu cầu tham gia lớp mới',
-      body: `${me.displayName} (${me.studentId ?? ''}) xin tham gia lớp ${cls.classCode}`,
+      body: '{{name}} ({{studentId}}) xin tham gia lớp {{code}}',
+      bodyParams: { name: me.displayName, studentId: me.studentId ?? '', code: cls.classCode },
       link: `/teach/classes/${cls.classId}/students`,
     });
     return { classId: cls.classId, className: `${cls.classCode} – ${cls.name}`, status: 'pending' };
@@ -457,7 +460,8 @@ export default async function classRoutes(app: FastifyInstance) {
       await notify([uid], {
         type: 'enrollment_approved',
         title: 'Đã được duyệt vào lớp',
-        body: `Bạn đã được thêm vào lớp ${a.cls.classCode} – ${a.cls.name}`,
+        body: 'Bạn đã được thêm vào lớp {{code}} – {{name}}',
+        bodyParams: { code: a.cls.classCode, name: a.cls.name },
         link: `/classes/${classId}`,
       });
     }

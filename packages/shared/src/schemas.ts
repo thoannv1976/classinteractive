@@ -3,6 +3,8 @@ import {
   ACTIVITY_TYPES,
   AI_MODES,
   AI_PROVIDERS,
+  AI_TASK_TYPES,
+  EMBEDDING_PROVIDERS,
   CLASS_STATUSES,
   LIMITS,
   MEMBER_ROLES,
@@ -38,10 +40,15 @@ export const clientRequestIdSchema = z
   .regex(/^[A-Za-z0-9_-]{8,64}$/, 'clientRequestId không hợp lệ');
 
 // ---------- Auth ----------
+export const languageSchema = z.enum(['vi', 'en']);
+
 export const registerSchema = z.object({
   studentId: studentIdSchema,
   password: passwordSchema,
+  language: languageSchema.optional(),
 });
+
+export const updateMeSchema = z.object({ language: languageSchema });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
@@ -100,6 +107,8 @@ export const classSettingsSchema = z.object({
   aiDailyQuota: z.number().int().min(0).max(10000),
   aiStudentDailyQuota: z.number().int().min(0).max(100),
   aiProvider: z.enum(AI_PROVIDERS).nullable(),
+  showScoreToStudents: z.boolean().optional(),
+  autoAiOnSessionEnd: z.boolean().optional(),
 });
 
 export const createClassSchema = z.object({
@@ -258,6 +267,7 @@ export const updateActivitySchema = z.object({
 export const submitActivitySchema = z.object({
   optionIds: z.array(z.string().max(40)).max(LIMITS.activityOptionsMax).default([]),
   text: trimmed(LIMITS.freeTextMax).default(''),
+  answers: z.array(trimmed(1000)).max(3).default([]),
   clientRequestId: clientRequestIdSchema,
 });
 
@@ -275,11 +285,92 @@ export const publishAiRunSchema = z.object({
   content: requiredText(LIMITS.postContentMax),
 });
 
+// ---------- Phase 2: topics, clusters, summaries, scores, jobs ----------
+const topicName = requiredText(80, 'Tên chủ đề trống');
+const postRef = z.object({ sessionId: z.string().min(1).max(64), postId: z.string().min(1).max(64) });
+
+export const createTopicSchema = z.object({ name: topicName, description: trimmed(500).default('') });
+export const updateTopicSchema = z.object({ name: topicName.optional(), description: trimmed(500).optional() });
+export const mergeTopicsSchema = z.object({ from: z.array(topicName).min(1).max(20), into: topicName });
+export const moveTopicPostsSchema = z.object({
+  posts: z.array(postRef).min(1).max(500),
+  remove: topicName.optional(),
+  add: z.array(topicName).max(5).default([]),
+});
+export const topicReviewSchema = z.object({
+  items: z
+    .array(postRef.extend({ action: z.enum(['accept', 'reject', 'edit']), topics: z.array(topicName).max(5).optional() }))
+    .min(1)
+    .max(500),
+});
+
+export const startJobSchema = z.object({
+  type: z.enum(['classify_topics', 'cluster_questions', 'summarize_session', 'summarize_activity', 'teaching_insights']),
+  sessionId: z.string().max(64).optional(),
+  activityId: z.string().max(64).optional(),
+  scope: z.enum(['session', 'class']).optional(),
+  force: z.boolean().optional(),
+});
+
+export const updateClusterSchema = z.object({
+  name: requiredText(200).optional(),
+  description: trimmed(1000).optional(),
+  status: z.enum(['open', 'resolved']).optional(),
+});
+export const mergeClustersSchema = z.object({ ids: z.array(z.string().max(64)).min(2).max(20), name: requiredText(200).optional() });
+export const moveClusterItemSchema = z.object({ item: postRef, toClusterId: z.string().max(64).nullable() });
+
+const summaryItem = z.object({ text: requiredText(1500), refs: z.array(z.string().max(64)).max(30).default([]) });
+export const summarySectionsSchema = z.object({
+  mainContent: trimmed(4000),
+  topicsDiscussed: z.array(summaryItem).max(30),
+  keyQuestions: z.array(summaryItem).max(30),
+  confirmedAnswers: z.array(summaryItem).max(30),
+  unresolved: z.array(summaryItem).max(30),
+  difficulties: z.array(summaryItem).max(30),
+  popular: z.array(summaryItem).max(30),
+  nextSession: z.array(summaryItem).max(30),
+});
+export const updateSummarySchema = z.object({
+  sections: summarySectionsSchema.optional(),
+  status: z.enum(['draft', 'approved']).optional(),
+  published: z.boolean().optional(),
+});
+
+export const scoreConfigSchema = z
+  .object({
+    weights: z.object({
+      activities: z.number().int().min(0).max(100),
+      answers: z.number().int().min(0).max(100),
+      questions: z.number().int().min(0).max(100),
+      helpful: z.number().int().min(0).max(100),
+      exitTickets: z.number().int().min(0).max(100),
+    }),
+    caps: z.object({
+      answers: z.number().int().min(1).max(20),
+      questions: z.number().int().min(1).max(20),
+      helpful: z.number().int().min(1).max(20),
+    }),
+    basis: z.enum(['held', 'attended']),
+  })
+  .refine((v) => Object.values(v.weights).reduce((a, b) => a + b, 0) === 100, 'Tổng trọng số phải bằng 100%');
+
+export const scoreAdjustmentSchema = z.object({ delta: z.number().min(-100).max(100), note: trimmed(500).default('') });
+
 const providerSettingsSchema = z.object({
   enabled: z.boolean(),
   model: requiredText(100),
   inputCostPerMTok: z.number().min(0).max(1000),
   outputCostPerMTok: z.number().min(0).max(1000),
+});
+
+/** API key of an AI provider ('' removes it). */
+export const apiKeySchema = z.object({
+  apiKey: z
+    .string()
+    .trim()
+    .max(400, 'API key quá dài')
+    .refine((v) => v === '' || (v.length >= 20 && !/\s/.test(v)), 'API key không hợp lệ'),
 });
 
 export const aiSettingsSchema = z.object({
@@ -294,6 +385,12 @@ export const aiSettingsSchema = z.object({
   maxOutputTokens: z.number().int().min(100).max(8000),
   timeoutMs: z.number().int().min(5000).max(120000),
   monthlyCostLimitUsd: z.number().min(0).max(100000),
+  taskModels: z
+    .record(z.enum(AI_TASK_TYPES), z.object({ provider: z.enum(AI_PROVIDERS).nullable(), model: z.string().trim().max(100).nullable() }))
+    .optional(),
+  embedding: z
+    .object({ provider: z.enum(EMBEDDING_PROVIDERS).nullable(), model: requiredText(100), threshold: z.number().min(0.3).max(0.99) })
+    .optional(),
 });
 
 // ---------- Helpers ----------

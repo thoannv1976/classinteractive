@@ -1,5 +1,6 @@
 import { Send } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { PostDoc, PostType } from '@classinteract/shared';
 import { LIMITS } from '@classinteract/shared';
@@ -9,12 +10,13 @@ import { ApiError, api, errorMessage } from '@/lib/api';
 import { useDraft } from '@/lib/drafts';
 import { rememberMyPost } from '@/lib/myPosts';
 import { cn, requestId } from '@/lib/utils';
+import { tk } from '@/i18n';
 import { similarQuestions } from './hooks';
 
 const ROOT_TYPES: { value: PostType; label: string; placeholder: string }[] = [
-  { value: 'question', label: 'Câu hỏi', placeholder: 'Bạn muốn hỏi điều gì về bài học?' },
-  { value: 'reflection', label: 'Nhận xét', placeholder: 'Chia sẻ nhận xét, suy nghĩ của bạn…' },
-  { value: 'discussion', label: 'Thảo luận', placeholder: 'Nêu ý kiến thảo luận…' },
+  { value: 'question', label: tk('Câu hỏi'), placeholder: tk('Bạn muốn hỏi điều gì về bài học?') },
+  { value: 'reflection', label: tk('Nhận xét'), placeholder: tk('Chia sẻ nhận xét, suy nghĩ của bạn…') },
+  { value: 'discussion', label: tk('Thảo luận'), placeholder: tk('Nêu ý kiến thảo luận…') },
 ];
 
 /** Post composer. Keeps a local draft and reuses the idempotency key on retries. */
@@ -40,6 +42,7 @@ export function Composer({
   existing: PostDoc[];
   onPosted?: () => void;
 }) {
+  const { t } = useTranslation();
   const [type, setType] = useState<PostType>('question');
   const [content, setContent, clear] = useDraft(`post:${sessionId}`);
   const [selected, setSelected] = useState<string[]>([]);
@@ -47,7 +50,7 @@ export function Composer({
   const [sending, setSending] = useState(false);
   const pendingKey = useRef<string | null>(null);
   const similar = type === 'question' && content.length > 15 ? similarQuestions(content, existing) : [];
-  const cfg = ROOT_TYPES.find((t) => t.value === type)!;
+  const cfg = ROOT_TYPES.find((rt) => rt.value === type)!;
 
   const submit = async () => {
     if (!content.trim() || sending) return;
@@ -65,12 +68,12 @@ export function Composer({
       rememberMyPost(r.postId);
       clear();
       setSelected([]);
-      toast.success(type === 'question' ? 'Đã gửi câu hỏi' : 'Đã gửi');
+      toast.success(type === 'question' ? t('Đã gửi câu hỏi') : t('Đã gửi'));
       onPosted?.();
     } catch (e) {
       // Network errors keep the same key so a retry cannot create a duplicate.
       if (!(e instanceof ApiError && e.status === 0)) pendingKey.current = null;
-      toast.error(errorMessage(e) + (e instanceof ApiError && e.status === 0 ? ' Bản nháp vẫn được giữ.' : ''));
+      toast.error(errorMessage(e) + (e instanceof ApiError && e.status === 0 ? ' ' + t('Bản nháp vẫn được giữ.') : ''));
     } finally {
       setSending(false);
     }
@@ -78,30 +81,30 @@ export function Composer({
 
   return (
     <div className="rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow-card)] sm:p-4">
-      <div className="mb-2 flex gap-1" role="radiogroup" aria-label="Loại bài đăng">
-        {ROOT_TYPES.map((t) => (
+      <div className="mb-2 flex gap-1" role="radiogroup" aria-label={t('Loại bài đăng')}>
+        {ROOT_TYPES.map((rt) => (
           <button
-            key={t.value}
+            key={rt.value}
             role="radio"
-            aria-checked={type === t.value}
-            onClick={() => setType(t.value)}
+            aria-checked={type === rt.value}
+            onClick={() => setType(rt.value)}
             className={cn(
               'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-              type === t.value ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+              type === rt.value ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
             )}
           >
-            {t.label}
+            {t(rt.label)}
           </button>
         ))}
       </div>
       <Textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder={disabled ? disabledReason : cfg.placeholder}
+        placeholder={disabled ? disabledReason : t(cfg.placeholder)}
         disabled={disabled}
         maxLength={LIMITS.postContentMax}
         className="min-h-[72px] resize-y border-0 px-1 shadow-none focus:ring-0"
-        aria-label={cfg.label}
+        aria-label={t(cfg.label)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -111,30 +114,30 @@ export function Composer({
       />
       {similar.length > 0 && (
         <div className="mb-2 rounded-lg bg-warning-soft px-3 py-2 text-xs text-amber-900">
-          <p className="font-medium">Có thể câu hỏi tương tự đã có:</p>
+          <p className="font-medium">{t('Có thể câu hỏi tương tự đã có:')}</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-4">
             {similar.map((p) => (
               <li key={p.postId} className="line-clamp-1">{p.content}</li>
             ))}
           </ul>
-          <p className="mt-1">Bạn có thể bình chọn câu hỏi đó thay vì gửi câu mới.</p>
+          <p className="mt-1">{t('Bạn có thể bình chọn câu hỏi đó thay vì gửi câu mới.')}</p>
         </div>
       )}
       {topics.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Chủ đề">
-          {topics.map((t) => {
-            const on = selected.includes(t);
+        <div className="mb-2 flex flex-wrap gap-1.5" aria-label={t('Chủ đề')}>
+          {topics.map((tp) => {
+            const on = selected.includes(tp);
             return (
               <button
-                key={t}
+                key={tp}
                 aria-pressed={on}
-                onClick={() => setSelected((s) => (on ? s.filter((x) => x !== t) : s.length < 5 ? [...s, t] : s))}
+                onClick={() => setSelected((s) => (on ? s.filter((x) => x !== tp) : s.length < 5 ? [...s, tp] : s))}
                 className={cn(
                   'rounded-md px-2 py-0.5 text-xs font-medium',
                   on ? 'bg-secondary text-white' : 'bg-secondary-soft text-secondary hover:bg-teal-100',
                 )}
               >
-                #{t}
+                #{tp}
               </button>
             );
           })}
@@ -142,21 +145,21 @@ export function Composer({
       )}
       {anon && (
         <p className="mb-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
-          Tên bạn được ẩn với các bạn trong lớp.{' '}
-          {revealToStaff ? 'Theo chính sách lớp, giảng viên vẫn có thể xem danh tính (mỗi lần xem được ghi nhật ký).' : 'Giảng viên cũng không thấy tên bạn.'} Đóng góp vẫn được tính vào mức độ tham gia của bạn.
+          {t('Tên bạn được ẩn với các bạn trong lớp.')}{' '}
+          {revealToStaff ? t('Theo chính sách lớp, giảng viên vẫn có thể xem danh tính (mỗi lần xem được ghi nhật ký).') : t('Giảng viên cũng không thấy tên bạn.')} {t('Đóng góp vẫn được tính vào mức độ tham gia của bạn.')}
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
         {allowAnonymous ? (
           <label className="flex items-center gap-2 text-xs text-muted">
             <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="h-4 w-4 rounded border-border-strong accent-primary" />
-            Gửi ẩn danh với các bạn trong lớp
+            {t('Gửi ẩn danh với các bạn trong lớp')}
           </label>
         ) : (
-          <span className="text-xs text-muted">{content ? 'Bản nháp được tự động lưu' : 'Ctrl + Enter để gửi'}</span>
+          <span className="text-xs text-muted">{content ? t('Bản nháp được tự động lưu') : t('Ctrl + Enter để gửi')}</span>
         )}
         <Button onClick={submit} loading={sending} disabled={disabled || !content.trim()} size="sm">
-          <Send className="h-4 w-4" /> Gửi
+          <Send className="h-4 w-4" /> {t('Gửi')}
         </Button>
       </div>
     </div>
@@ -181,6 +184,7 @@ export function ReplyComposer({
   disabledReason?: string;
   defaultType?: 'answer' | 'comment';
 }) {
+  const { t } = useTranslation();
   const [type, setType] = useState<'answer' | 'comment'>(defaultType);
   const [content, setContent, clear] = useDraft(`reply:${postId}`);
   const [anon, setAnon] = useState(false);
@@ -212,25 +216,25 @@ export function ReplyComposer({
   return (
     <div className="rounded-xl border border-border bg-surface p-3">
       <div className="mb-2 flex gap-1">
-        {(['answer', 'comment'] as const).map((t) => (
+        {(['answer', 'comment'] as const).map((rt) => (
           <button
-            key={t}
-            onClick={() => setType(t)}
-            aria-pressed={type === t}
-            className={cn('rounded-full px-3 py-1 text-xs font-medium', type === t ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600')}
+            key={rt}
+            onClick={() => setType(rt)}
+            aria-pressed={type === rt}
+            className={cn('rounded-full px-3 py-1 text-xs font-medium', type === rt ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600')}
           >
-            {t === 'answer' ? 'Trả lời' : 'Bình luận'}
+            {rt === 'answer' ? t('Trả lời') : t('Bình luận')}
           </button>
         ))}
       </div>
       <Textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder={disabled ? disabledReason : type === 'answer' ? 'Viết câu trả lời…' : 'Bổ sung ý kiến…'}
+        placeholder={disabled ? disabledReason : type === 'answer' ? t('Viết câu trả lời…') : t('Bổ sung ý kiến…')}
         disabled={disabled}
         maxLength={LIMITS.postContentMax}
         className="min-h-[64px] border-0 px-1 shadow-none focus:ring-0"
-        aria-label="Nội dung phản hồi"
+        aria-label={t('Nội dung phản hồi')}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -242,13 +246,13 @@ export function ReplyComposer({
         {allowAnonymous ? (
           <label className="flex items-center gap-2 text-xs text-muted">
             <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="h-4 w-4 accent-primary" />
-            Ẩn danh
+            {t('Ẩn danh')}
           </label>
         ) : (
           <span />
         )}
         <Button size="sm" onClick={submit} loading={sending} disabled={disabled || !content.trim()}>
-          <Send className="h-4 w-4" /> Gửi
+          <Send className="h-4 w-4" /> {t('Gửi')}
         </Button>
       </div>
     </div>

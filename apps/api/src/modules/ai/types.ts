@@ -20,7 +20,8 @@ export interface StructuredResult {
 /** Normalised interface – business logic never depends on a specific vendor API. */
 export interface AiAdapter {
   provider: AiProvider;
-  isConfigured(): boolean;
+  /** Whether an API key is available (Secret Manager / env). */
+  isConfigured(): Promise<boolean>;
   generateStructured(req: StructuredRequest): Promise<StructuredResult>;
 }
 

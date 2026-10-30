@@ -8,6 +8,7 @@ import {
   normalizeEmail,
   normalizeStudentId,
   registerSchema,
+  updateMeSchema,
 } from '@classinteract/shared';
 import { config } from '../config';
 import { Timestamp, auth, db, inc, now } from '../firebase';
@@ -31,7 +32,7 @@ const passwordChangeLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } };
 export default async function authRoutes(app: FastifyInstance) {
   /** Student self-registration: student ID must be in a list imported by a lecturer/admin. */
   app.post('/auth/register', { config: strictLimit }, async (req) => {
-    const { studentId, password } = parse(registerSchema, req.body);
+    const { studentId, password, language } = parse(registerSchema, req.body);
     const tenantId = config.tenantId;
     const dirRef = C.studentDirectory().doc(directoryKey(tenantId, studentId));
     const loginRef = C.userLogins().doc(loginKey(tenantId, 'sid', studentId));
@@ -73,6 +74,7 @@ export default async function authRoutes(app: FastifyInstance) {
           studentId,
           email: dir.email ?? null,
           mustChangePassword: false,
+          language: language ?? 'vi',
           lastLoginAt: now(),
           schemaVersion: SCHEMA_VERSION,
           createdAt: now(),
@@ -133,7 +135,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const lockedUntil = cred.lockedUntil as Timestamp | null;
     if (lockedUntil && lockedUntil.toMillis() > Date.now()) {
       const minutes = Math.ceil((lockedUntil.toMillis() - Date.now()) / 60000);
-      throw new AppError(429, 'ACCOUNT_LOCKED', `Bạn đã nhập sai nhiều lần. Vui lòng thử lại sau ${minutes} phút.`);
+      throw new AppError(429, 'ACCOUNT_LOCKED', 'Bạn đã nhập sai nhiều lần. Vui lòng thử lại sau {{minutes}} phút.', undefined, { minutes });
     }
 
     const ok = await verifyPassword(cred.passwordHash as string, password);
@@ -166,6 +168,14 @@ export default async function authRoutes(app: FastifyInstance) {
   });
 
   app.get('/auth/me', { preHandler: authenticate }, async (req) => ({ user: serialize(currentUser(req)) }));
+
+  /** Personal preferences (UI language). */
+  app.patch('/auth/me', { preHandler: authenticate }, async (req) => {
+    const u = currentUser(req);
+    const { language } = parse(updateMeSchema, req.body);
+    await C.user(u.uid).update({ language, updatedAt: now() });
+    return { ok: true };
+  });
 
   /** Change own password. Other sessions are signed out; a fresh token is returned for this device. */
   app.post('/auth/change-password', { preHandler: authenticate, config: passwordChangeLimit }, async (req) => {

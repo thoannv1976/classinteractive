@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { ClassDoc, PostDoc, SessionDoc } from '@classinteract/shared';
 import { Thread } from '@/components/classroom/Thread';
@@ -15,6 +16,7 @@ export function QuestionPage() {
   const { classId = '', sessionId = '', postId = '' } = useParams();
   const meta = useApi<{ class: ClassDoc; access: { canModerate: boolean } }>(`/classes/${classId}/sessions/${sessionId}`);
   const session = useLiveDoc<SessionDoc>(sessionPath(classId, sessionId));
+  const { t } = useTranslation();
   if (meta.error) return <ErrorState error={meta.error} />;
   if (!meta.data || !session.data) return <Spinner />;
   const cls = meta.data.class;
@@ -23,14 +25,14 @@ export function QuestionPage() {
   const ask = async (p: PostDoc) => {
     try {
       await api.post('/ai/answer', { classId, sessionId, postId: p.postId });
-      toast.success('AI đã trả lời (có nhãn AI Generated)');
+      toast.success(t('AI đã trả lời (có nhãn AI Generated)'));
     } catch (e) {
       toast.error(errorMessage(e));
     }
   };
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader back={{ to: `/classes/${classId}/sessions/${sessionId}`, label: sessionLabel(session.data) }} title="Chi tiết thảo luận" />
+      <PageHeader back={{ to: `/classes/${classId}/sessions/${sessionId}`, label: sessionLabel(session.data) }} title={t('Chi tiết thảo luận')} />
       <Thread
         cls={cls}
         sessionId={sessionId}

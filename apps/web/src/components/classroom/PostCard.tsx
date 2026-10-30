@@ -15,6 +15,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { PostDoc, QuestionStatus, Reaction, ReactionDoc } from '@classinteract/shared';
 import { POST_TYPE_LABELS, QUESTION_STATUS_LABELS, REACTIONS, REACTION_LABELS } from '@classinteract/shared';
@@ -49,16 +50,18 @@ const STATUS_TONE: Record<QuestionStatus, 'neutral' | 'primary' | 'success' | 'w
 };
 
 export function RoleBadge({ post }: { post: PostDoc }) {
-  if (post.isAiGenerated) return <Badge tone="ai"><Bot className="h-3 w-3" /> AI Generated{post.approvedBy ? ' · GV đã duyệt' : ''}</Badge>;
-  if (post.authorRole === 'lecturer') return <Badge tone="primary">Giảng viên</Badge>;
-  if (post.authorRole === 'admin') return <Badge tone="primary">Quản trị</Badge>;
-  if (post.authorRole === 'ta') return <Badge tone="secondary">Trợ giảng</Badge>;
+  const { t } = useTranslation();
+  if (post.isAiGenerated) return <Badge tone="ai"><Bot className="h-3 w-3" /> AI Generated{post.approvedBy ? ' · ' + t('GV đã duyệt') : ''}</Badge>;
+  if (post.authorRole === 'lecturer') return <Badge tone="primary">{t('Giảng viên')}</Badge>;
+  if (post.authorRole === 'admin') return <Badge tone="primary">{t('Quản trị')}</Badge>;
+  if (post.authorRole === 'ta') return <Badge tone="secondary">{t('Trợ giảng')}</Badge>;
   return null;
 }
 
 export function StatusBadge({ status }: { status: QuestionStatus | null }) {
+  const { t } = useTranslation();
   if (!status) return null;
-  return <Badge tone={STATUS_TONE[status]}>{QUESTION_STATUS_LABELS[status]}</Badge>;
+  return <Badge tone={STATUS_TONE[status]}>{t(QUESTION_STATUS_LABELS[status])}</Badge>;
 }
 
 interface Props {
@@ -77,6 +80,7 @@ interface Props {
 
 export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, revealAllowed, compact, onOpenThread, onAskAi, canAskAiAsStudent, isOwn }: Props) {
   const me = useMe();
+  const { t } = useTranslation();
   const base = `/classes/${classId}/sessions/${sessionId}/posts/${post.postId}`;
   const [mine, setMine] = useOnceDoc<ReactionDoc>(`${sessionPath(classId, sessionId)}/posts/${post.postId}/reactions/${me.uid}`);
   const [busy, setBusy] = useState(false);
@@ -89,6 +93,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
   const withinWindow = Date.now() - (toDate(post.createdAt)?.getTime() ?? 0) < editWindowMinutes * 60000;
   const hidden = post.moderationStatus === 'hidden';
   const isQuestion = post.type === 'question';
+  const authorName = post.isAnonymous || post.isAiGenerated ? t(post.authorName) : post.authorName;
 
   const react = async (body: { reaction?: Reaction | null; upvoted?: boolean }) => {
     const prev = mine;
@@ -131,7 +136,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
     try {
       await api.del(base);
       setConfirmDelete(false);
-      toast.success('Đã xóa bài');
+      toast.success(t('Đã xóa bài'));
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -160,31 +165,31 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
         hidden && 'opacity-60',
         compact && 'p-3',
       )}
-      aria-label={`${POST_TYPE_LABELS[post.type]} của ${post.authorName}`}
+      aria-label={t('{{type}} của {{name}}', { type: t(POST_TYPE_LABELS[post.type]), name: authorName })}
     >
       <header className="flex items-start gap-3">
-        <Avatar name={post.authorName} ai={post.isAiGenerated} className={compact ? 'h-8 w-8' : undefined} />
+        <Avatar name={authorName} ai={post.isAiGenerated} className={compact ? 'h-8 w-8' : undefined} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-semibold">{post.authorName}</span>
+            <span className="text-sm font-semibold">{authorName}</span>
             <RoleBadge post={post} />
-            {post.isRoot && <Badge tone="neutral">{POST_TYPE_LABELS[post.type]}</Badge>}
+            {post.isRoot && <Badge tone="neutral">{t(POST_TYPE_LABELS[post.type])}</Badge>}
             {isQuestion && <StatusBadge status={post.status} />}
             {post.isPinned && (
               <Badge tone="primary">
-                <Pin className="h-3 w-3" /> Đã ghim
+                <Pin className="h-3 w-3" /> {t('Đã ghim')}
               </Badge>
             )}
             {post.isAccepted && (
               <Badge tone="success">
-                <CheckCircle2 className="h-3 w-3" /> GV xác nhận
+                <CheckCircle2 className="h-3 w-3" /> {t('GV xác nhận')}
               </Badge>
             )}
-            {hidden && <Badge tone="danger">Đã ẩn</Badge>}
+            {hidden && <Badge tone="danger">{t('Đã ẩn')}</Badge>}
           </div>
           <p className="mt-0.5 text-xs text-muted">
             <time dateTime={toDate(post.createdAt)?.toISOString()}>{timeAgo(post.createdAt)}</time>
-            {post.editedAt && ' · đã sửa'}
+            {post.editedAt && ' · ' + t('đã sửa')}
             {author && (
               <span className="ml-2 font-medium text-fg">
                 → {author.displayName} {author.studentId && `(${author.studentId})`}
@@ -195,7 +200,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
         {(staff || (ownPost && withinWindow && !post.isAiGenerated)) && (
           <Menu
             trigger={
-              <Button variant="ghost" size="icon-sm" aria-label="Thao tác" disabled={busy}>
+              <Button variant="ghost" size="icon-sm" aria-label={t('Thao tác')} disabled={busy}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             }
@@ -203,10 +208,10 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
             {ownPost && withinWindow && (
               <>
                 <MenuItem onSelect={() => { setEditText(post.content); setEditing(true); }}>
-                  <Pencil className="h-4 w-4" /> Sửa
+                  <Pencil className="h-4 w-4" /> {t('Sửa')}
                 </MenuItem>
                 <MenuItem danger onSelect={() => setConfirmDelete(true)}>
-                  <Trash2 className="h-4 w-4" /> Xóa
+                  <Trash2 className="h-4 w-4" /> {t('Xóa')}
                 </MenuItem>
               </>
             )}
@@ -214,36 +219,36 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
               <>
                 {ownPost && withinWindow && <MenuSeparator />}
                 {post.isRoot && (
-                  <MenuItem onSelect={() => moderate({ isPinned: !post.isPinned }, post.isPinned ? 'Đã bỏ ghim' : 'Đã ghim')}>
-                    {post.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />} {post.isPinned ? 'Bỏ ghim' : 'Ghim lên đầu'}
+                  <MenuItem onSelect={() => moderate({ isPinned: !post.isPinned }, post.isPinned ? t('Đã bỏ ghim') : t('Đã ghim'))}>
+                    {post.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />} {post.isPinned ? t('Bỏ ghim') : t('Ghim lên đầu')}
                   </MenuItem>
                 )}
                 {post.type === 'answer' && !post.isAiGenerated && (
-                  <MenuItem onSelect={() => moderate({ isAccepted: !post.isAccepted }, post.isAccepted ? 'Đã bỏ xác nhận' : 'Đã xác nhận câu trả lời')}>
-                    <CheckCircle2 className="h-4 w-4" /> {post.isAccepted ? 'Bỏ xác nhận' : 'Xác nhận câu trả lời đúng'}
+                  <MenuItem onSelect={() => moderate({ isAccepted: !post.isAccepted }, post.isAccepted ? t('Đã bỏ xác nhận') : t('Đã xác nhận câu trả lời'))}>
+                    <CheckCircle2 className="h-4 w-4" /> {post.isAccepted ? t('Bỏ xác nhận') : t('Xác nhận câu trả lời đúng')}
                   </MenuItem>
                 )}
                 {isQuestion &&
                   (['new', 'answered', 'need_clarification', 'resolved', 'archived'] as QuestionStatus[])
                     .filter((s) => s !== post.status)
                     .map((s) => (
-                      <MenuItem key={s} onSelect={() => moderate({ status: s }, `Đã chuyển: ${QUESTION_STATUS_LABELS[s]}`)}>
-                        <span className="h-4 w-4" /> Đánh dấu: {QUESTION_STATUS_LABELS[s]}
+                      <MenuItem key={s} onSelect={() => moderate({ status: s }, t('Đã chuyển: {{status}}', { status: t(QUESTION_STATUS_LABELS[s]) }))}>
+                        <span className="h-4 w-4" /> {t('Đánh dấu: {{status}}', { status: t(QUESTION_STATUS_LABELS[s]) })}
                       </MenuItem>
                     ))}
                 {isQuestion && onAskAi && (
                   <MenuItem onSelect={() => onAskAi(post)}>
-                    <Sparkles className="h-4 w-4" /> AI đề xuất trả lời
+                    <Sparkles className="h-4 w-4" /> {t('AI đề xuất trả lời')}
                   </MenuItem>
                 )}
                 {post.isAnonymous && revealAllowed && post.identityRevealable && (
                   <MenuItem onSelect={reveal}>
-                    <UserSearch className="h-4 w-4" /> Xem danh tính
+                    <UserSearch className="h-4 w-4" /> {t('Xem danh tính')}
                   </MenuItem>
                 )}
                 <MenuSeparator />
-                <MenuItem danger={!hidden} onSelect={() => moderate({ moderationStatus: hidden ? 'visible' : 'hidden' }, hidden ? 'Đã hiện lại' : 'Đã ẩn bài')}>
-                  {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />} {hidden ? 'Hiện lại' : 'Ẩn bài'}
+                <MenuItem danger={!hidden} onSelect={() => moderate({ moderationStatus: hidden ? 'visible' : 'hidden' }, hidden ? t('Đã hiện lại') : t('Đã ẩn bài'))}>
+                  {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />} {hidden ? t('Hiện lại') : t('Ẩn bài')}
                 </MenuItem>
               </>
             )}
@@ -253,10 +258,10 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
 
       {editing ? (
         <div className="mt-3 space-y-2">
-          <Textarea value={editText} onChange={(e) => setEditText(e.target.value)} maxLength={5000} aria-label="Sửa nội dung" />
+          <Textarea value={editText} onChange={(e) => setEditText(e.target.value)} maxLength={5000} aria-label={t('Sửa nội dung')} />
           <div className="flex gap-2">
-            <Button size="sm" onClick={saveEdit} loading={busy} disabled={!editText.trim()}>Lưu</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Hủy</Button>
+            <Button size="sm" onClick={saveEdit} loading={busy} disabled={!editText.trim()}>{t('Lưu')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>{t('Hủy')}</Button>
           </div>
         </div>
       ) : (
@@ -270,8 +275,8 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
 
       {post.topics?.length > 0 && post.isRoot && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {post.topics.map((t) => (
-            <span key={t} className="rounded-md bg-secondary-soft px-2 py-0.5 text-xs font-medium text-secondary">#{t}</span>
+          {post.topics.map((tp) => (
+            <span key={tp} className="rounded-md bg-secondary-soft px-2 py-0.5 text-xs font-medium text-secondary">#{tp}</span>
           ))}
         </div>
       )}
@@ -285,15 +290,15 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
               mine?.upvoted ? 'border-primary bg-primary-soft text-primary' : 'border-border text-muted hover:bg-slate-50',
             )}
             aria-pressed={!!mine?.upvoted}
-            title="Bình chọn để giảng viên ưu tiên trả lời"
+            title={t('Bình chọn để giảng viên ưu tiên trả lời')}
           >
             <ChevronUp className="h-4 w-4" /> {post.voteCount}
-            <span className="hidden sm:inline">Muốn được trả lời</span>
+            <span className="hidden sm:inline">{t('Muốn được trả lời')}</span>
           </button>
         )}
         {post.isRoot && onOpenThread && (
           <button onClick={onOpenThread} className="inline-flex h-8 items-center gap-1 rounded-full border border-border px-3 text-xs font-medium text-muted hover:bg-slate-50">
-            <MessageSquare className="h-4 w-4" /> {post.replyCount} phản hồi
+            <MessageSquare className="h-4 w-4" /> {t('{{n}} phản hồi', { n: post.replyCount })}
           </button>
         )}
         <Menu
@@ -304,16 +309,16 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
                 'inline-flex h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium',
                 mine?.reaction ? 'border-secondary/40 bg-secondary-soft text-secondary' : 'border-border text-muted hover:bg-slate-50',
               )}
-              aria-label="Phản hồi nhanh"
+              aria-label={t('Phản hồi nhanh')}
             >
               {mine?.reaction ? <span aria-hidden>{REACTION_EMOJI[mine.reaction]}</span> : <Smile className="h-4 w-4" />}
-              {mine?.reaction ? REACTION_LABELS[mine.reaction] : 'Phản hồi nhanh'}
+              {mine?.reaction ? t(REACTION_LABELS[mine.reaction]) : t('Phản hồi nhanh')}
             </button>
           }
         >
           {REACTIONS.map((r) => (
             <MenuItem key={r} onSelect={() => react({ reaction: mine?.reaction === r ? null : r })}>
-              <span aria-hidden>{REACTION_EMOJI[r]}</span> {REACTION_LABELS[r]}
+              <span aria-hidden>{REACTION_EMOJI[r]}</span> {t(REACTION_LABELS[r])}
               {mine?.reaction === r && <CheckCircle2 className="ml-auto h-4 w-4 text-secondary" />}
             </MenuItem>
           ))}
@@ -321,7 +326,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
         {topReactions.length > 0 && (
           <div className="ml-1 flex flex-wrap items-center gap-1 text-xs text-muted">
             {topReactions.map((r) => (
-              <span key={r} className="rounded-full bg-slate-100 px-2 py-0.5" title={REACTION_LABELS[r]}>
+              <span key={r} className="rounded-full bg-slate-100 px-2 py-0.5" title={t(REACTION_LABELS[r])}>
                 {REACTION_EMOJI[r]} {counts[r]}
               </span>
             ))}
@@ -329,7 +334,7 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
         )}
         {canAskAiAsStudent && ownPost && isQuestion && onAskAi && (
           <Button size="sm" variant="ghost" className="ml-auto text-violet-700" onClick={() => onAskAi(post)}>
-            <Sparkles className="h-4 w-4" /> Hỏi AI
+            <Sparkles className="h-4 w-4" /> {t('Hỏi AI')}
           </Button>
         )}
       </footer>
@@ -337,9 +342,9 @@ export function PostCard({ post, classId, sessionId, staff, editWindowMinutes, r
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Xóa bài đăng?"
-        description="Bài sẽ bị ẩn khỏi lớp và không được tính vào thống kê."
-        confirmLabel="Xóa"
+        title={t('Xóa bài đăng?')}
+        description={t('Bài sẽ bị ẩn khỏi lớp và không được tính vào thống kê.')}
+        confirmLabel={t('Xóa')}
         danger
         loading={busy}
         onConfirm={remove}

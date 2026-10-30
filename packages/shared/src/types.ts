@@ -3,6 +3,8 @@ import type {
   ActivityType,
   AiApprovalStatus,
   AiMode,
+  AiJobStatus,
+  AiJobType,
   AiProvider,
   AiRunStatus,
   AiTaskType,
@@ -18,6 +20,10 @@ import type {
   SessionStatus,
   UserRole,
   UserStatus,
+  EmbeddingProvider,
+  ScoreComponent,
+  SummaryStatus,
+  TopicReviewStatus,
 } from './constants';
 
 /**
@@ -36,6 +42,8 @@ export interface UserDoc {
   studentId: string | null;
   email: string | null;
   mustChangePassword: boolean;
+  /** Preferred UI language. */
+  language?: 'vi' | 'en';
   createdAt: Time;
   updatedAt: Time;
   lastLoginAt: Time | null;
@@ -67,6 +75,10 @@ export interface ClassSettings {
   /** Daily number of AI requests per student (student_support mode). */
   aiStudentDailyQuota: number;
   aiProvider: AiProvider | null;
+  /** Students see their own reference engagement score. */
+  showScoreToStudents?: boolean;
+  /** Run topic classification + session summary automatically when a session ends. */
+  autoAiOnSessionEnd?: boolean;
 }
 
 export interface ClassDoc {
@@ -187,6 +199,9 @@ export interface PostDoc {
   activityId: string | null;
   content: string;
   topics: string[];
+  /** Topics proposed by AI (kept even after the lecturer decides, to compare with the final topics). */
+  aiTopics?: string[] | null;
+  topicReview?: TopicReviewStatus | null;
   /** null when the post is anonymous. */
   authorId: string | null;
   authorName: string;
@@ -267,6 +282,8 @@ export interface SubmissionDoc {
   displayName: string;
   optionIds: string[];
   text: string;
+  /** Exit ticket: answers to the three standard questions. */
+  answers?: string[];
   featured: boolean;
   submittedAt: Time;
   updatedAt: Time;
@@ -290,6 +307,7 @@ export interface StudentClassMetricsDoc {
   quizzesAnswered: number;
   quizCorrect: number;
   acceptedAnswers: number;
+  exitTickets?: number;
   openQuestions: number;
   topics: string[];
   lastActiveAt: Time | null;
@@ -318,6 +336,8 @@ export interface ClassStatsDoc {
   reflectionCount: number;
   openQuestionCount: number;
   activityCount: number;
+  /** Exit tickets opened (counted separately from other activities). */
+  exitTicketCount?: number;
   submissionCount: number;
   updatedAt: Time;
 }
@@ -328,6 +348,11 @@ export interface NotificationDoc {
   title: string;
   body: string;
   link: string | null;
+  /** Translatable title/body (Vietnamese template + params); title/body hold the Vietnamese rendering. */
+  titleKey?: string;
+  titleParams?: Record<string, string | number | null>;
+  bodyKey?: string;
+  bodyParams?: Record<string, string | number | null>;
   read: boolean;
   createdAt: Time;
 }
@@ -348,6 +373,10 @@ export interface AiSettingsDoc {
   maxOutputTokens: number;
   timeoutMs: number;
   monthlyCostLimitUsd: number;
+  /** Optional provider/model per task (null = default provider and its model). */
+  taskModels?: Partial<Record<AiTaskType, { provider: AiProvider | null; model: string | null }>>;
+  /** Embeddings for semantic clustering / duplicate detection (Claude has no embedding API). */
+  embedding?: { provider: EmbeddingProvider | null; model: string; threshold: number };
   updatedAt?: Time;
   updatedBy?: string;
 }
@@ -403,4 +432,126 @@ export interface MeResponse {
 
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown };
+}
+
+export interface PostRef {
+  sessionId: string;
+  postId: string;
+}
+
+export interface AiJobDoc {
+  jobId: string;
+  tenantId: string;
+  classId: string;
+  sessionId: string | null;
+  type: AiJobType;
+  status: AiJobStatus;
+  params: Record<string, unknown>;
+  lang: 'vi' | 'en';
+  requestedBy: string;
+  requestedByName: string;
+  progress: string | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  attempts: number;
+  createdAt: Time;
+  startedAt: Time | null;
+  completedAt: Time | null;
+}
+
+export interface TopicDoc {
+  topicId: string;
+  classId: string;
+  name: string;
+  description: string;
+  source: 'lecturer' | 'ai' | 'session';
+  createdBy: string;
+  createdAt: Time;
+  updatedAt: Time;
+}
+
+export interface ClusterDoc {
+  clusterId: string;
+  classId: string;
+  scope: 'session' | 'class';
+  sessionId: string | null;
+  name: string;
+  description: string;
+  items: PostRef[];
+  questionCount: number;
+  studentCount: number;
+  sessionCount: number;
+  voteCount: number;
+  interest: number;
+  openCount: number;
+  status: 'open' | 'resolved';
+  /** Edited by a lecturer – kept when clustering runs again. */
+  locked: boolean;
+  method: 'embedding' | 'llm' | 'manual';
+  jobId: string | null;
+  createdAt: Time;
+  updatedAt: Time;
+}
+
+export interface SummaryItem {
+  text: string;
+  /** Post ids the statement is based on. */
+  refs: string[];
+}
+
+export interface SessionSummarySections {
+  mainContent: string;
+  topicsDiscussed: SummaryItem[];
+  keyQuestions: SummaryItem[];
+  confirmedAnswers: SummaryItem[];
+  unresolved: SummaryItem[];
+  difficulties: SummaryItem[];
+  popular: SummaryItem[];
+  nextSession: SummaryItem[];
+}
+
+export interface SessionSummaryDoc {
+  classId: string;
+  sessionId: string;
+  status: SummaryStatus;
+  published: boolean;
+  sections: SessionSummarySections;
+  lang: 'vi' | 'en';
+  aiRunId: string | null;
+  jobId: string | null;
+  generatedAt: Time | null;
+  editedBy: string | null;
+  approvedBy: string | null;
+  approvedAt: Time | null;
+  updatedAt: Time;
+}
+
+export interface ScoreConfig {
+  version: number;
+  weights: Record<ScoreComponent, number>;
+  /** Maximum contributions counted per session (spam protection). */
+  caps: { answers: number; questions: number; helpful: number };
+  /** Sessions that count as opportunities: all held sessions, or only sessions the student attended. */
+  basis: 'held' | 'attended';
+  createdBy: string;
+  createdAt: Time;
+}
+
+export interface InsightItem {
+  category: 'topic_questions' | 'misconception' | 'unanswered' | 'needs_explanation' | 'participation' | 'suggestion';
+  title: string;
+  detail: string;
+  evidence: string[];
+  refs: string[];
+}
+
+export interface TeachingInsightsDoc {
+  classId: string;
+  insights: InsightItem[];
+  followUpQuestions: string[];
+  lang: 'vi' | 'en';
+  aiRunId: string | null;
+  jobId: string | null;
+  generatedAt: Time;
+  generatedBy: string;
 }

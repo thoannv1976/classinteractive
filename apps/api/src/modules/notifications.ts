@@ -1,16 +1,40 @@
 import type { FastifyInstance } from 'fastify';
-import type { NotificationType } from '@classinteract/shared';
+import type { NotificationType, Params } from '@classinteract/shared';
+import { interpolate } from '@classinteract/shared';
 import { z } from 'zod';
 import { db, now } from '../firebase';
 import { currentUser } from '../lib/auth';
 import { parse } from '../lib/errors';
 import { C } from '../lib/paths';
 
-/** Best-effort in-app notifications (never blocks the main action). */
+/**
+ * Best-effort in-app notifications (never blocks the main action).
+ * `title` is always a Vietnamese template (translated on the client). `body` is a template when
+ * `bodyParams` is given or `bodyTranslatable` is set; otherwise it is user content shown as is.
+ */
 export async function notify(
   uids: string[],
-  n: { type: NotificationType; title: string; body: string; link: string | null },
+  input: {
+    type: NotificationType;
+    title: string;
+    titleParams?: Params;
+    body: string;
+    bodyParams?: Params;
+    bodyTranslatable?: boolean;
+    link: string | null;
+  },
 ) {
+  const translatableBody = input.bodyTranslatable || !!input.bodyParams;
+  const n = {
+    type: input.type,
+    title: interpolate(input.title, input.titleParams),
+    titleKey: input.title,
+    titleParams: input.titleParams ?? null,
+    body: interpolate(input.body, input.bodyParams),
+    bodyKey: translatableBody ? input.body : null,
+    bodyParams: input.bodyParams ?? null,
+    link: input.link,
+  };
   const unique = [...new Set(uids)].filter(Boolean);
   try {
     for (let i = 0; i < unique.length; i += 400) {

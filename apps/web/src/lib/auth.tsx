@@ -2,6 +2,8 @@ import { onAuthStateChanged, signInWithCustomToken, signOut, type User } from 'f
 import { doc, onSnapshot } from 'firebase/firestore';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { UserDoc } from '@classinteract/shared';
+import { isLang } from '@classinteract/shared';
+import i18n, { currentLang, setLanguage } from '@/i18n';
 import { api } from './api';
 import { auth, db } from './firebase';
 import { queryClient } from './query';
@@ -47,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             void signOut(auth);
             return;
           }
+          const lang = (u as { language?: string }).language;
+          if (isLang(lang) && lang !== i18n.language) void setLanguage(lang);
           setUser(u);
           setStatus('signedIn');
         },
@@ -72,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (studentId: string, password: string) => {
-    const r = await api.post<{ token: string; user: UserDoc }>('/auth/register', { studentId, password });
+    const r = await api.post<{ token: string; user: UserDoc }>('/auth/register', { studentId, password, language: currentLang() });
     await signInWithCustomToken(auth, r.token);
     return r.user;
   }, []);

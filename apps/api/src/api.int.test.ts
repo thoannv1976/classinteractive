@@ -283,6 +283,37 @@ describe('AI', () => {
   });
 });
 
+describe('i18n & AI keys', () => {
+  it('returns error messages in English when x-lang is en', async () => {
+    const vi = await ctx.anon.post('/auth/register', { studentId: 'SV777', password: '123456' });
+    expect(vi.body.error.message).toContain('Mã sinh viên chưa có');
+    const en = await ctx.anon.req('POST', '/auth/register', { studentId: 'SV777', password: '123456' }, { 'x-lang': 'en' });
+    expect(en.body.error.code).toBe('NOT_IN_ROSTER');
+    expect(en.body.error.message).not.toMatch(/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễđ]/);
+    const val = await ctx.anon.req('POST', '/auth/register', { studentId: 'x', password: '1' }, { 'x-lang': 'en' });
+    expect(val.body.error.code).toBe('VALIDATION_ERROR');
+    expect(val.body.error.message).not.toMatch(/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễđ]/);
+  });
+
+  it('stores the language preference', async () => {
+    expect((await sv2.patch('/auth/me', { language: 'en' })).status).toBe(200);
+    expect((await sv2.get('/auth/me')).body.user.language).toBe('en');
+  });
+
+  it('only the super admin stores AI keys; keys are never returned', async () => {
+    expect((await lecturer.put('/admin/settings/ai/keys/openai', { apiKey: 'sk-test-0123456789abcdefghij' })).status).toBe(403);
+    expect((await admin.put('/admin/settings/ai/keys/openai', { apiKey: 'short' })).status).toBe(400);
+    const r = await admin.put('/admin/settings/ai/keys/openai', { apiKey: 'sk-test-0123456789abcdefWXYZ' });
+    expect(r.status).toBe(200);
+    const st = await admin.get('/admin/settings/ai');
+    const k = st.body.keys.find((x: any) => x.provider === 'openai');
+    expect(k).toMatchObject({ configured: true, source: 'store', last4: 'WXYZ' });
+    expect(JSON.stringify(st.body)).not.toContain('sk-test-0123456789');
+    const rm = await admin.put('/admin/settings/ai/keys/openai', { apiKey: '' });
+    expect(rm.body.keys.find((x: any) => x.provider === 'openai').configured).toBe(false);
+  });
+});
+
 describe('security', () => {
   it('Test 12: students cannot call admin APIs or change roles', async () => {
     expect((await sv1.get('/users')).status).toBe(403);

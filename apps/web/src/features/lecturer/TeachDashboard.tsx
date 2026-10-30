@@ -1,4 +1,5 @@
 import { AlertCircle, ArrowRight, GraduationCap, MessageCircleQuestion, Radio, UserPlus, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { ClassDoc, ClassStatsDoc, SessionDoc } from '@classinteract/shared';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ interface Overview {
 }
 
 export function TeachDashboard() {
+  const { t } = useTranslation();
   const me = useMe();
   const { data, isLoading, error, refetch } = useApi<Overview>('/teach/overview', { refetchInterval: 30_000 });
   const items = data?.items ?? [];
@@ -23,24 +25,24 @@ export function TeachDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Chào ${me.displayName}`}
-        description="Tổng quan các lớp bạn phụ trách"
+        title={t('Chào {{name}}', { name: me.displayName })}
+        description={t('Tổng quan các lớp bạn phụ trách')}
         actions={
           <Link to="/teach/classes?new=1" className={buttonVariants()}>
-            <GraduationCap className="h-4 w-4" /> Tạo lớp học phần
+            <GraduationCap className="h-4 w-4" /> {t('Tạo lớp học phần')}
           </Link>
         }
       />
       {error && <ErrorState error={error} onRetry={() => refetch()} />}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Lớp phụ trách" value={items.length} icon={<GraduationCap className="h-4 w-4" />} />
-        <StatCard label="Sinh viên" value={sum((i) => i.class.studentCount)} icon={<Users className="h-4 w-4" />} tone="secondary" />
-        <StatCard label="Câu hỏi chưa giải đáp" value={sum((i) => i.stats?.openQuestionCount ?? 0)} icon={<MessageCircleQuestion className="h-4 w-4" />} tone="accent" />
-        <StatCard label="Yêu cầu vào lớp" value={sum((i) => i.pendingRequests)} icon={<UserPlus className="h-4 w-4" />} tone="neutral" />
+        <StatCard label={t('Lớp phụ trách')} value={items.length} icon={<GraduationCap className="h-4 w-4" />} />
+        <StatCard label={t('Sinh viên', { context: 'n' })} value={sum((i) => i.class.studentCount)} icon={<Users className="h-4 w-4" />} tone="secondary" />
+        <StatCard label={t('Câu hỏi chưa giải đáp')} value={sum((i) => i.stats?.openQuestionCount ?? 0)} icon={<MessageCircleQuestion className="h-4 w-4" />} tone="accent" />
+        <StatCard label={t('Yêu cầu vào lớp')} value={sum((i) => i.pendingRequests)} icon={<UserPlus className="h-4 w-4" />} tone="neutral" />
       </div>
       {live.length > 0 && (
         <Card className="border-green-200">
-          <CardHeader title="Đang diễn ra" />
+          <CardHeader title={t('Đang diễn ra')} />
           <CardBody className="space-y-2">
             {live.map(({ s, c }) => (
               <Link key={s.sessionId} to={`/teach/classes/${c.classId}/sessions/${s.sessionId}`} className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50/60 p-3 hover:bg-green-50">
@@ -54,12 +56,12 @@ export function TeachDashboard() {
         </Card>
       )}
       <Card>
-        <CardHeader title="Lớp học phần" />
+        <CardHeader title={t('Lớp học phần')} />
         <CardBody>
           {isLoading ? (
             <ListSkeleton rows={2} />
           ) : !items.length ? (
-            <EmptyState icon={<GraduationCap className="h-6 w-6" />} title="Bạn chưa phụ trách lớp nào" description="Tạo lớp học phần mới hoặc liên hệ quản trị viên để được phân công." />
+            <EmptyState icon={<GraduationCap className="h-6 w-6" />} title={t('Bạn chưa phụ trách lớp nào')} description={t('Tạo lớp học phần mới hoặc liên hệ quản trị viên để được phân công.')} />
           ) : (
             <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {items.map(({ class: c, stats, pendingRequests, liveSessions }) => (
@@ -68,16 +70,16 @@ export function TeachDashboard() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold">{c.classCode}</span>
                       <div className="flex gap-1">
-                        {liveSessions.length > 0 && <Badge tone="success">Đang học</Badge>}
-                        {pendingRequests > 0 && <Badge tone="accent">{pendingRequests} yêu cầu</Badge>}
+                        {liveSessions.length > 0 && <Badge tone="success">{t('Đang học')}</Badge>}
+                        {pendingRequests > 0 && <Badge tone="accent">{t('{{count}} yêu cầu', { count: pendingRequests })}</Badge>}
                       </div>
                     </div>
                     <p className="truncate text-sm text-muted">{c.courseName} · {c.semester}</p>
                     <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-muted">
-                      <div><b className="block text-base text-fg">{c.studentCount}</b>SV</div>
-                      <div><b className="block text-base text-fg">{stats?.sessionsHeld ?? 0}</b>buổi</div>
+                      <div><b className="block text-base text-fg">{c.studentCount}</b>{t('SV')}</div>
+                      <div><b className="block text-base text-fg">{stats?.sessionsHeld ?? 0}</b>{t('buổi')}</div>
                       <div>
-                        <b className={`block text-base ${(stats?.openQuestionCount ?? 0) > 0 ? 'text-accent' : 'text-fg'}`}>{stats?.openQuestionCount ?? 0}</b>chưa giải đáp
+                        <b className={`block text-base ${(stats?.openQuestionCount ?? 0) > 0 ? 'text-accent' : 'text-fg'}`}>{stats?.openQuestionCount ?? 0}</b>{t('chưa giải đáp')}
                       </div>
                     </div>
                   </Link>
@@ -88,7 +90,7 @@ export function TeachDashboard() {
         </CardBody>
       </Card>
       <p className="flex items-center gap-1.5 text-xs text-muted">
-        <AlertCircle className="h-4 w-4" /> Số liệu tham gia là tín hiệu để giảng viên quan tâm, không tự động kết luận về năng lực hay sự cố gắng của sinh viên.
+        <AlertCircle className="h-4 w-4" /> {t('Số liệu tham gia là tín hiệu để giảng viên quan tâm, không tự động kết luận về năng lực hay sự cố gắng của sinh viên.')}
       </p>
     </div>
   );

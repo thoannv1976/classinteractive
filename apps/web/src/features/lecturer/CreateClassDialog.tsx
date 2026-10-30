@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import type { CourseDoc, UserDoc } from '@classinteract/shared';
@@ -13,6 +14,7 @@ import { invalidate, useApi } from '@/lib/query';
 const thisYear = new Date().getFullYear();
 
 export function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { t } = useTranslation();
   const me = useMe();
   const navigate = useNavigate();
   const courses = useApi<{ items: CourseDoc[] }>(open ? '/courses' : null);
@@ -37,7 +39,7 @@ export function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpe
         lecturerIds: lecturerId ? [lecturerId] : undefined,
       });
       await invalidate('/classes', '/teach', '/courses');
-      toast.success('Đã tạo lớp học phần');
+      toast.success(t('Đã tạo lớp học phần'));
       onOpenChange(false);
       navigate(`/teach/classes/${r.classId}/students`);
     } catch (e) {
@@ -54,56 +56,56 @@ export function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpe
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Tạo lớp học phần"
+      title={t('Tạo lớp học phần')}
       size="lg"
       footer={
         <>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('Hủy')}</Button>
           <Button onClick={save} loading={saving} disabled={!valid || !form.classCode || !form.semester || !form.academicYear}>
-            Tạo lớp
+            {t('Tạo lớp')}
           </Button>
         </>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Học phần" htmlFor="course" className="sm:col-span-2">
+        <Field label={t('Học phần')} htmlFor="course" className="sm:col-span-2">
           <Select id="course" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
-            <option value="">— Chọn học phần —</option>
+            <option value="">{t('— Chọn học phần —')}</option>
             {courses.data?.items.map((c) => (
               <option key={c.courseId} value={c.courseId}>{c.code} – {c.name}</option>
             ))}
-            <option value="__new">+ Thêm học phần mới</option>
+            <option value="__new">{t('+ Thêm học phần mới')}</option>
           </Select>
         </Field>
         {courseId === '__new' && (
           <>
-            <Field label="Mã học phần" htmlFor="ccode">
+            <Field label={t('Mã học phần')} htmlFor="ccode">
               <Input id="ccode" value={newCourse.code} onChange={(e) => setNewCourse((c) => ({ ...c, code: e.target.value }))} placeholder="DGB301" />
             </Field>
-            <Field label="Tên học phần" htmlFor="cname">
-              <Input id="cname" value={newCourse.name} onChange={(e) => setNewCourse((c) => ({ ...c, name: e.target.value }))} placeholder="Kinh doanh số" />
+            <Field label={t('Tên học phần')} htmlFor="cname">
+              <Input id="cname" value={newCourse.name} onChange={(e) => setNewCourse((c) => ({ ...c, name: e.target.value }))} placeholder={t('Kinh doanh số')} />
             </Field>
           </>
         )}
-        <Field label="Mã lớp học phần" htmlFor="code">
+        <Field label={t('Mã lớp học phần')} htmlFor="code">
           <Input id="code" value={form.classCode} onChange={set('classCode')} placeholder="DGB301.01" />
         </Field>
-        <Field label="Tên lớp (không bắt buộc)" htmlFor="name">
-          <Input id="name" value={form.name} onChange={set('name')} placeholder="Mặc định theo tên học phần" />
+        <Field label={t('Tên lớp (không bắt buộc)')} htmlFor="name">
+          <Input id="name" value={form.name} onChange={set('name')} placeholder={t('Mặc định theo tên học phần')} />
         </Field>
-        <Field label="Học kỳ" htmlFor="sem">
+        <Field label={t('Học kỳ')} htmlFor="sem">
           <Input id="sem" value={form.semester} onChange={set('semester')} placeholder="HK1" />
         </Field>
-        <Field label="Năm học" htmlFor="ay">
+        <Field label={t('Năm học')} htmlFor="ay">
           <Input id="ay" value={form.academicYear} onChange={set('academicYear')} placeholder="2026-2027" />
         </Field>
-        <Field label="Lịch học" htmlFor="sch" className="sm:col-span-2">
-          <Input id="sch" value={form.schedule} onChange={set('schedule')} placeholder="Thứ 3, tiết 1–3, phòng A2.05" />
+        <Field label={t('Lịch học')} htmlFor="sch" className="sm:col-span-2">
+          <Input id="sch" value={form.schedule} onChange={set('schedule')} placeholder={t('Thứ 3, tiết 1–3, phòng A2.05')} />
         </Field>
         {isAdminRole(me.role) && (
-          <Field label="Giảng viên phụ trách" htmlFor="lec" className="sm:col-span-2">
+          <Field label={t('Giảng viên phụ trách')} htmlFor="lec" className="sm:col-span-2">
             <Select id="lec" value={lecturerId} onChange={(e) => setLecturerId(e.target.value)}>
-              <option value="">— Chưa phân công —</option>
+              <option value="">{t('— Chưa phân công —')}</option>
               {lecturers.data?.items.map((u) => (
                 <option key={u.uid} value={u.uid}>{u.displayName} ({u.email})</option>
               ))}

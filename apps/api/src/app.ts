@@ -4,7 +4,9 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import { createHash } from 'node:crypto';
 import { config } from './config';
+import { translate } from '@classinteract/shared';
 import { authenticate } from './lib/auth';
+import { requestLang } from './lib/lang';
 import { errorHandler } from './lib/errors';
 import activityRoutes from './modules/activities';
 import adminRoutes from './modules/admin';
@@ -76,8 +78,8 @@ export async function buildApp() {
     { prefix: '/api/v1' },
   );
 
-  app.setNotFoundHandler((_req, reply) =>
-    reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Endpoint không tồn tại' } }),
+  app.setNotFoundHandler((req, reply) =>
+    reply.status(404).send({ error: { code: 'NOT_FOUND', message: translate(requestLang(req), 'Endpoint không tồn tại') } }),
   );
   return app;
 }

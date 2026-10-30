@@ -45,7 +45,7 @@ export type AuthorRole = (typeof AUTHOR_ROLES)[number];
 export const REACTIONS = ['agree', 'disagree', 'helpful', 'same_question', 'need_explanation', 'understood'] as const;
 export type Reaction = (typeof REACTIONS)[number];
 
-export const ACTIVITY_TYPES = ['free_text', 'poll', 'quiz', 'understanding'] as const;
+export const ACTIVITY_TYPES = ['free_text', 'poll', 'quiz', 'understanding', 'exit_ticket'] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 export const ACTIVITY_STATUSES = ['draft', 'open', 'closed'] as const;
@@ -58,11 +58,36 @@ export const UNDERSTANDING_OPTIONS = [
   { id: 'not_yet', label: 'Chưa hiểu' },
 ] as const;
 
+/** The three standard exit-ticket questions (answered in one submission). */
+export const EXIT_TICKET_QUESTIONS = [
+  'Hôm nay bạn học được điều gì quan trọng nhất?',
+  'Bạn còn chưa hiểu vấn đề nào?',
+  'Bạn muốn tìm hiểu thêm nội dung gì?',
+] as const;
+
 export const AI_PROVIDERS = ['openai', 'anthropic', 'gemini'] as const;
+export const EMBEDDING_PROVIDERS = ['openai', 'gemini'] as const;
+export type EmbeddingProvider = (typeof EMBEDDING_PROVIDERS)[number];
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
-export const AI_TASK_TYPES = ['answer'] as const;
+export const AI_TASK_TYPES = ['answer', 'classify', 'cluster', 'summarize', 'insights', 'activity_summary'] as const;
 export type AiTaskType = (typeof AI_TASK_TYPES)[number];
+
+/** Background AI jobs (Cloud Tasks in production, in-process in development). */
+export const AI_JOB_TYPES = ['classify_topics', 'cluster_questions', 'summarize_session', 'summarize_activity', 'teaching_insights'] as const;
+export type AiJobType = (typeof AI_JOB_TYPES)[number];
+export const AI_JOB_STATUSES = ['queued', 'running', 'completed', 'failed'] as const;
+export type AiJobStatus = (typeof AI_JOB_STATUSES)[number];
+
+export const TOPIC_REVIEW_STATUSES = ['pending', 'accepted', 'edited', 'rejected'] as const;
+export type TopicReviewStatus = (typeof TOPIC_REVIEW_STATUSES)[number];
+
+export const SUMMARY_STATUSES = ['draft', 'approved'] as const;
+export type SummaryStatus = (typeof SUMMARY_STATUSES)[number];
+
+/** Engagement score components (weights in percent, see docs/ARCHITECTURE.md). */
+export const SCORE_COMPONENTS = ['activities', 'answers', 'questions', 'helpful', 'exitTickets'] as const;
+export type ScoreComponent = (typeof SCORE_COMPONENTS)[number];
 
 export const AI_RUN_STATUSES = ['pending', 'completed', 'failed'] as const;
 export type AiRunStatus = (typeof AI_RUN_STATUSES)[number];

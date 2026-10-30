@@ -9,6 +9,9 @@ import {
   ROLE_LABELS,
   SESSION_STATUS_LABELS,
   formatPercent,
+  translate,
+  type Lang,
+  type Params,
 } from '@classinteract/shared';
 import { z } from 'zod';
 import { db } from '../firebase';
@@ -16,6 +19,7 @@ import { requireClassModerator } from '../lib/access';
 import { audit } from '../lib/audit';
 import { currentUser } from '../lib/auth';
 import {
+  UNTAGGED,
   aggregateTopics,
   loadClassPosts,
   loadClassStats,
@@ -26,6 +30,7 @@ import {
   topicsByStudent,
 } from '../lib/classData';
 import { parse } from '../lib/errors';
+import { requestLang } from '../lib/lang';
 import { C } from '../lib/paths';
 import { toMillis } from '../lib/time';
 
@@ -39,21 +44,22 @@ interface Sheet {
 
 const DATASETS = ['students', 'sessions', 'questions', 'answers', 'topics', 'activities', 'submissions'] as const;
 
-const fmtTime = (v: unknown) => {
+const fmtTime = (v: unknown, lang: Lang = 'vi') => {
   const ms = toMillis(v);
   if (!ms) return '';
-  return new Date(ms).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+  return new Date(ms).toLocaleString(lang === 'en' ? 'en-GB' : 'vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 };
 const pct = (r: number | null) => (r === null ? '' : formatPercent(r, 1));
 
-async function buildSheets(classId: string, revealAnonymous: boolean): Promise<Sheet[]> {
+async function buildSheets(classId: string, revealAnonymous: boolean, lang: Lang): Promise<Sheet[]> {
+  const T = (text: string, params?: Params) => translate(lang, text, params);
   const [stats, sessions, students, posts] = await Promise.all([
     loadClassStats(classId),
     loadSessionsWithStats(classId),
     loadStudents(classId),
     loadClassPosts(classId),
   ]);
-  const sessionLabel = new Map(sessions.map((s) => [s.sessionId, `Buổi ${String(s.sessionNumber).padStart(2, '0')}`]));
+  const sessionLabel = new Map(sessions.map((s) => [s.sessionId, T('Buổi {{n}}', { n: String(s.sessionNumber).padStart(2, '0') })]));
   const members = new Map<string, MemberDoc>(students.map((s) => [s.member.uid, s.member]));
   // Names of non-members (lecturers, admins) for authorship
   const otherUids = [...new Set(posts.map((p) => p.authorUid).filter((u): u is string => !!u && !members.has(u)))];
@@ -61,10 +67,10 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
   const userName = new Map(others.filter((o) => o.exists).map((o) => [o.id, (o.data() as UserDoc).displayName]));
 
   const authorCols = (p: (typeof posts)[number]) => {
-    if (p.isAiGenerated) return ['AI (đã duyệt)', ''];
-    if (p.isAnonymous && !(revealAnonymous && p.identityRevealable)) return ['Ẩn danh', ''];
+    if (p.isAiGenerated) return [T('AI (đã duyệt)'), ''];
+    if (p.isAnonymous && !(revealAnonymous && p.identityRevealable)) return [T('Ẩn danh'), ''];
     const m = p.authorUid ? members.get(p.authorUid) : undefined;
-    if (m) return [m.displayName + (p.isAnonymous ? ' (ẩn danh)' : ''), m.studentId ?? ''];
+    if (m) return [m.displayName + (p.isAnonymous ? T(' (ẩn danh)') : ''), m.studentId ?? ''];
     return [p.authorUid ? (userName.get(p.authorUid) ?? p.authorName) : p.authorName, ''];
   };
 
@@ -74,35 +80,35 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     key: 'students',
     name: 'Student Participation',
     columns: [
-      { header: 'STT', width: 6 },
-      { header: 'Mã SV', width: 14 },
-      { header: 'Họ tên', width: 28 },
-      { header: 'Vai trò lớp' },
-      { header: 'Số buổi tham gia' },
-      { header: 'Tỷ lệ tham dự' },
-      { header: 'Câu hỏi' },
-      { header: 'Trả lời' },
-      { header: 'Bình luận' },
-      { header: 'Nhận xét' },
-      { header: 'Phản hồi nhanh' },
-      { header: 'Hoạt động hoàn thành' },
-      { header: 'Tỷ lệ hoàn thành HĐ' },
-      { header: 'Khảo sát' },
-      { header: 'Quiz' },
-      { header: 'Quiz đúng' },
-      { header: 'Độ chính xác quiz' },
-      { header: 'Câu trả lời được xác nhận' },
-      { header: 'Câu hỏi chưa giải đáp' },
-      { header: 'Số chủ đề tham gia' },
-      { header: 'Mức độ đều đặn' },
-      { header: 'Tổng tương tác' },
-      { header: 'Hoạt động gần nhất', width: 20 },
+      { header: T('STT'), width: 6 },
+      { header: T('Mã SV'), width: 14 },
+      { header: T('Họ tên'), width: 28 },
+      { header: T('Vai trò lớp') },
+      { header: T('Số buổi tham gia') },
+      { header: T('Tỷ lệ tham dự') },
+      { header: T('Câu hỏi') },
+      { header: T('Trả lời') },
+      { header: T('Bình luận') },
+      { header: T('Nhận xét') },
+      { header: T('Phản hồi nhanh') },
+      { header: T('Hoạt động hoàn thành') },
+      { header: T('Tỷ lệ hoàn thành HĐ') },
+      { header: T('Khảo sát') },
+      { header: T('Quiz') },
+      { header: T('Quiz đúng') },
+      { header: T('Độ chính xác quiz') },
+      { header: T('Câu trả lời được xác nhận') },
+      { header: T('Câu hỏi chưa giải đáp') },
+      { header: T('Số chủ đề tham gia') },
+      { header: T('Mức độ đều đặn') },
+      { header: T('Tổng tương tác') },
+      { header: T('Hoạt động gần nhất'), width: 20 },
     ],
     rows: rows.map((r, i) => [
       i + 1,
       r.studentId,
       r.displayName,
-      r.memberRole === 'ta' ? 'Trợ giảng' : 'Sinh viên',
+      r.memberRole === 'ta' ? T('Trợ giảng') : T('Sinh viên'),
       r.sessionsJoined,
       pct(r.attendanceRate),
       r.questions,
@@ -121,7 +127,7 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
       r.topicsCovered,
       pct(r.consistency),
       r.interactions,
-      fmtTime(r.lastActiveAt),
+      fmtTime(r.lastActiveAt, lang),
     ]),
   });
 
@@ -129,26 +135,26 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     key: 'sessions',
     name: 'Session Statistics',
     columns: [
-      { header: 'Buổi' },
-      { header: 'Tên buổi học', width: 36 },
-      { header: 'Ngày' },
-      { header: 'Trạng thái' },
-      { header: 'SV tham gia' },
-      { header: 'SV có tương tác' },
-      { header: 'Câu hỏi' },
-      { header: 'Trả lời' },
-      { header: 'Bình luận' },
-      { header: 'Nhận xét' },
-      { header: 'Câu hỏi chưa giải đáp' },
-      { header: 'Hoạt động' },
-      { header: 'Bài nộp' },
-      { header: 'Phản hồi nhanh' },
+      { header: T('Buổi') },
+      { header: T('Tên buổi học'), width: 36 },
+      { header: T('Ngày') },
+      { header: T('Trạng thái') },
+      { header: T('SV tham gia') },
+      { header: T('SV có tương tác') },
+      { header: T('Câu hỏi') },
+      { header: T('Trả lời') },
+      { header: T('Bình luận') },
+      { header: T('Nhận xét') },
+      { header: T('Câu hỏi chưa giải đáp') },
+      { header: T('Hoạt động') },
+      { header: T('Bài nộp') },
+      { header: T('Phản hồi nhanh') },
     ],
     rows: sessions.map((s) => [
       s.sessionNumber,
       s.title,
       s.date,
-      SESSION_STATUS_LABELS[s.status],
+      T(SESSION_STATUS_LABELS[s.status]),
       s.stats?.attendeeCount ?? 0,
       s.stats?.interactedCount ?? 0,
       s.stats?.questionCount ?? 0,
@@ -168,29 +174,29 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     key: 'questions',
     name: 'Questions',
     columns: [
-      { header: 'Buổi' },
-      { header: 'Thời gian', width: 20 },
-      { header: 'Loại' },
-      { header: 'Người gửi', width: 26 },
-      { header: 'Mã SV', width: 14 },
-      { header: 'Nội dung', width: 60 },
-      { header: 'Chủ đề', width: 24 },
-      { header: 'Trạng thái' },
-      { header: 'Số phản hồi' },
-      { header: 'Bình chọn' },
-      { header: 'Hiển thị' },
+      { header: T('Buổi') },
+      { header: T('Thời gian'), width: 20 },
+      { header: T('Loại') },
+      { header: T('Người gửi'), width: 26 },
+      { header: T('Mã SV'), width: 14 },
+      { header: T('Nội dung'), width: 60 },
+      { header: T('Chủ đề'), width: 24 },
+      { header: T('Trạng thái') },
+      { header: T('Số phản hồi') },
+      { header: T('Bình chọn') },
+      { header: T('Hiển thị') },
     ],
     rows: roots.map((p) => [
       sessionLabel.get(p.sessionId) ?? '',
-      fmtTime(p.createdAt),
-      POST_TYPE_LABELS[p.type],
+      fmtTime(p.createdAt, lang),
+      T(POST_TYPE_LABELS[p.type]),
       ...authorCols(p),
       p.content,
       (p.topics ?? []).join(', '),
-      p.status ? QUESTION_STATUS_LABELS[p.status] : '',
+      p.status ? T(QUESTION_STATUS_LABELS[p.status]) : '',
       p.replyCount,
       p.voteCount,
-      p.moderationStatus === 'visible' ? 'Có' : 'Đã ẩn',
+      p.moderationStatus === 'visible' ? T('Có') : T('Đã ẩn'),
     ]),
   });
 
@@ -199,29 +205,29 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     key: 'answers',
     name: 'Answers',
     columns: [
-      { header: 'Buổi' },
-      { header: 'Thời gian', width: 20 },
-      { header: 'Câu hỏi gốc', width: 40 },
-      { header: 'Loại' },
-      { header: 'Người trả lời', width: 26 },
-      { header: 'Mã SV', width: 14 },
-      { header: 'Vai trò' },
-      { header: 'Nội dung', width: 60 },
-      { header: 'GV xác nhận' },
-      { header: 'Do AI tạo' },
-      { header: 'Hiển thị' },
+      { header: T('Buổi') },
+      { header: T('Thời gian'), width: 20 },
+      { header: T('Câu hỏi gốc'), width: 40 },
+      { header: T('Loại') },
+      { header: T('Người trả lời'), width: 26 },
+      { header: T('Mã SV'), width: 14 },
+      { header: T('Vai trò') },
+      { header: T('Nội dung'), width: 60 },
+      { header: T('GV xác nhận') },
+      { header: T('Do AI tạo') },
+      { header: T('Hiển thị') },
     ],
     rows: replies.map((p) => [
       sessionLabel.get(p.sessionId) ?? '',
-      fmtTime(p.createdAt),
+      fmtTime(p.createdAt, lang),
       (rootById.get(p.rootPostId ?? '')?.content ?? '').slice(0, 200),
-      POST_TYPE_LABELS[p.type],
+      T(POST_TYPE_LABELS[p.type]),
       ...authorCols(p),
-      p.authorRole === 'ai' ? 'AI' : p.authorRole === 'ta' ? 'Trợ giảng' : (ROLE_LABELS as Record<string, string>)[p.authorRole] ?? p.authorRole,
+      p.authorRole === 'ai' ? 'AI' : p.authorRole === 'ta' ? T('Trợ giảng') : T((ROLE_LABELS as Record<string, string>)[p.authorRole] ?? p.authorRole),
       p.content,
-      p.isAccepted ? 'Có' : '',
-      p.isAiGenerated ? 'Có' : '',
-      p.moderationStatus === 'visible' ? 'Có' : 'Đã ẩn',
+      p.isAccepted ? T('Có') : '',
+      p.isAiGenerated ? T('Có') : '',
+      p.moderationStatus === 'visible' ? T('Có') : T('Đã ẩn'),
     ]),
   });
 
@@ -229,15 +235,15 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     key: 'topics',
     name: 'Topics',
     columns: [
-      { header: 'Chủ đề', width: 32 },
-      { header: 'Câu hỏi' },
-      { header: 'Trả lời' },
-      { header: 'Bình luận/Nhận xét' },
-      { header: 'Chưa giải đáp' },
-      { header: 'SV tham gia' },
-      { header: 'Số buổi xuất hiện' },
+      { header: T('Chủ đề'), width: 32 },
+      { header: T('Câu hỏi') },
+      { header: T('Trả lời') },
+      { header: T('Bình luận/Nhận xét') },
+      { header: T('Chưa giải đáp') },
+      { header: T('SV tham gia') },
+      { header: T('Số buổi xuất hiện') },
     ],
-    rows: aggregateTopics(posts).map((t) => [t.topic, t.questions, t.answers, t.comments, t.openQuestions, t.participants, t.sessions]),
+    rows: aggregateTopics(posts).map((t) => [t.topic === UNTAGGED ? T(UNTAGGED) : t.topic, t.questions, t.answers, t.comments, t.openQuestions, t.participants, t.sessions]),
   });
 
   const actRows: Cell[][] = [];
@@ -246,12 +252,12 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     const acts = await loadSessionActivities(classId, s.sessionId);
     for (const act of acts as (ActivityDoc & { results: Record<string, unknown> | null })[]) {
       const r = (act.results ?? {}) as { submissionCount?: number; optionCounts?: Record<string, number>; correctCount?: number };
-      const optionSummary = act.options.map((o) => `${o.label}: ${r.optionCounts?.[o.id] ?? 0}`).join(' | ');
+      const optionSummary = act.options.map((o) => `${act.type === 'understanding' ? T(o.label) : o.label}: ${r.optionCounts?.[o.id] ?? 0}`).join(' | ');
       actRows.push([
         sessionLabel.get(s.sessionId) ?? '',
         act.title,
-        ACTIVITY_TYPE_LABELS[act.type],
-        ACTIVITY_STATUS_LABELS[act.status],
+        T(ACTIVITY_TYPE_LABELS[act.type]),
+        T(ACTIVITY_STATUS_LABELS[act.status]),
         r.submissionCount ?? 0,
         act.type === 'quiz' && r.submissionCount ? pct((r.correctCount ?? 0) / r.submissionCount) : '',
         optionSummary,
@@ -269,10 +275,10 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
           act.title,
           sub.studentId,
           sub.displayName,
-          sub.optionIds.map((o) => labels.get(o) ?? o).join(', '),
+          sub.optionIds.map((o) => (act.type === 'understanding' ? T(labels.get(o) ?? o) : (labels.get(o) ?? o))).join(', '),
           sub.text,
-          act.type === 'quiz' ? (correct.get(d.id) ? 'Đúng' : 'Sai') : '',
-          fmtTime(sub.updatedAt),
+          act.type === 'quiz' ? (correct.get(d.id) ? T('Đúng') : T('Sai')) : '',
+          fmtTime(sub.updatedAt, lang),
         ]);
       }
     }
@@ -281,13 +287,13 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     key: 'activities',
     name: 'Activities',
     columns: [
-      { header: 'Buổi' },
-      { header: 'Hoạt động', width: 36 },
-      { header: 'Loại' },
-      { header: 'Trạng thái' },
-      { header: 'Số bài nộp' },
-      { header: 'Tỷ lệ đúng' },
-      { header: 'Kết quả theo phương án', width: 60 },
+      { header: T('Buổi') },
+      { header: T('Hoạt động'), width: 36 },
+      { header: T('Loại') },
+      { header: T('Trạng thái') },
+      { header: T('Số bài nộp') },
+      { header: T('Tỷ lệ đúng') },
+      { header: T('Kết quả theo phương án'), width: 60 },
     ],
     rows: actRows,
   });
@@ -295,14 +301,14 @@ async function buildSheets(classId: string, revealAnonymous: boolean): Promise<S
     key: 'submissions',
     name: 'Activity Submissions',
     columns: [
-      { header: 'Buổi' },
-      { header: 'Hoạt động', width: 30 },
-      { header: 'Mã SV', width: 14 },
-      { header: 'Họ tên', width: 26 },
-      { header: 'Lựa chọn', width: 30 },
-      { header: 'Nội dung trả lời', width: 60 },
-      { header: 'Kết quả' },
-      { header: 'Thời gian', width: 20 },
+      { header: T('Buổi') },
+      { header: T('Hoạt động'), width: 30 },
+      { header: T('Mã SV'), width: 14 },
+      { header: T('Họ tên'), width: 26 },
+      { header: T('Lựa chọn'), width: 30 },
+      { header: T('Nội dung trả lời'), width: 60 },
+      { header: T('Kết quả') },
+      { header: T('Thời gian'), width: 20 },
     ],
     rows: subRows,
   });
@@ -327,7 +333,7 @@ export default async function exportRoutes(app: FastifyInstance) {
       z.object({ format: z.enum(['xlsx', 'csv', 'json']).default('xlsx'), dataset: z.enum(DATASETS).default('students') }),
       req.query,
     );
-    const sheets = await buildSheets(classId, a.cls.settings.revealAnonymousToStaff);
+    const sheets = await buildSheets(classId, a.cls.settings.revealAnonymousToStaff, requestLang(req));
     const base = `${a.cls.classCode}_${a.cls.semester}`.replace(/[^A-Za-z0-9._-]+/g, '_');
     await audit(req, 'class.export', 'class', classId, { format: q.format, dataset: q.format === 'xlsx' ? 'all' : q.dataset });
 

@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import type { PostAuthorDoc } from '@classinteract/shared';
-import { aiAnswerSchema, aiSettingsSchema, publishAiRunSchema } from '@classinteract/shared';
+import { AI_PROVIDERS, aiAnswerSchema, aiSettingsSchema, apiKeySchema, publishAiRunSchema } from '@classinteract/shared';
 import { z } from 'zod';
 import { now } from '../../firebase';
 import { assertClassWritable, loadClassAccess, requireClassModerator } from '../../lib/access';
 import { audit } from '../../lib/audit';
-import { currentUser, requireAdmin } from '../../lib/auth';
+import { currentUser, requireAdmin, requireRole } from '../../lib/auth';
+import { keyStatuses, setProviderKey } from '../../lib/secrets';
+import { getAdapter } from './providers';
 import { conflict, forbidden, parse } from '../../lib/errors';
 import { C } from '../../lib/paths';
 import { serialize } from '../../lib/time';
@@ -80,11 +82,42 @@ export default async function aiRoutes(app: FastifyInstance) {
 
   app.get('/ai/status', async () => {
     const s = await getAiSettings();
-    return { enabled: s.enabled, defaultProvider: s.defaultProvider, providers: providerStatus().map((p) => ({ ...p, enabled: s.providers[p.provider].enabled, model: s.providers[p.provider].model })) };
+    const providers = await providerStatus();
+    return { enabled: s.enabled, defaultProvider: s.defaultProvider, providers: providers.map((p) => ({ ...p, enabled: s.providers[p.provider].enabled, model: s.providers[p.provider].model })) };
   });
 
   app.get('/admin/settings/ai', { preHandler: requireAdmin }, async () => {
-    return { settings: serialize(await getAiSettings()), providers: providerStatus() };
+    return { settings: serialize(await getAiSettings()), providers: await providerStatus(), keys: serialize(await keyStatuses()) };
+  });
+
+  /** Store / replace / remove an AI provider API key (super administrator only). The key is never returned. */
+  app.put('/admin/settings/ai/keys/:provider', { preHandler: requireRole('superadmin'), config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
+    const { provider } = parse(z.object({ provider: z.enum(AI_PROVIDERS) }), req.params);
+    const { apiKey } = parse(apiKeySchema, req.body);
+    await setProviderKey(provider, apiKey, currentUser(req).uid);
+    await audit(req, apiKey ? 'settings.ai_key_set' : 'settings.ai_key_remove', 'settings', provider, { last4: apiKey ? apiKey.slice(-4) : null });
+    return { ok: true, keys: serialize(await keyStatuses()) };
+  });
+
+  /** Sends a tiny request with the stored key and the configured model. */
+  app.post('/admin/settings/ai/keys/:provider/test', { preHandler: requireAdmin, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
+    const { provider } = parse(z.object({ provider: z.enum(AI_PROVIDERS) }), req.params);
+    const settings = await getAiSettings();
+    const started = Date.now();
+    try {
+      const r = await getAdapter(provider).generateStructured({
+        model: settings.providers[provider].model,
+        system: 'Health check. Reply with the JSON object only.',
+        user: 'Return {"ok": true}.',
+        schemaName: 'health_check',
+        schema: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false },
+        maxOutputTokens: 200,
+        timeoutMs: 30000,
+      });
+      return { ok: true, model: r.model, latencyMs: Date.now() - started };
+    } catch (e) {
+      return { ok: false, latencyMs: Date.now() - started, error: (e as Error).message.slice(0, 300) };
+    }
   });
 
   app.put('/admin/settings/ai', { preHandler: requireAdmin }, async (req) => {

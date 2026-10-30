@@ -18,7 +18,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const USER_STATUS_LABELS: Record<UserStatus, string> = {
-  active: 'Hoạt động',
+  active: 'Đang hoạt động',
   disabled: 'Đã khóa',
 };
 
@@ -66,6 +66,30 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   poll: 'Khảo sát',
   quiz: 'Trắc nghiệm nhanh',
   understanding: 'Kiểm tra mức độ hiểu',
+  exit_ticket: 'Phiếu cuối buổi',
+};
+
+export const AI_JOB_TYPE_LABELS: Record<import('./constants').AiJobType, string> = {
+  classify_topics: 'Phân loại chủ đề',
+  cluster_questions: 'Gom nhóm câu hỏi',
+  summarize_session: 'Tóm tắt buổi học',
+  summarize_activity: 'Tổng hợp câu trả lời hoạt động',
+  teaching_insights: 'Gợi ý giảng dạy',
+};
+
+export const AI_JOB_STATUS_LABELS: Record<import('./constants').AiJobStatus, string> = {
+  queued: 'Đang chờ',
+  running: 'Đang chạy',
+  completed: 'Hoàn tất',
+  failed: 'Lỗi',
+};
+
+export const SCORE_COMPONENT_LABELS: Record<import('./constants').ScoreComponent, string> = {
+  activities: 'Hoàn thành hoạt động trên lớp',
+  answers: 'Trả lời câu hỏi/thảo luận',
+  questions: 'Đặt câu hỏi liên quan',
+  helpful: 'Đóng góp phản hồi có ích',
+  exitTickets: 'Phiếu cuối buổi',
 };
 
 export const ACTIVITY_STATUS_LABELS: Record<ActivityStatus, string> = {

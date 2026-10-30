@@ -6,7 +6,7 @@ export const LABELS_EN: Record<string, string> = {
   'Quản trị': 'Administrator',
   'Quản trị cấp cao': 'Super administrator',
   'Trợ giảng': 'Teaching assistant',
-  'Hoạt động': 'Active',
+  'Hoạt động': 'Activity',
   'Đã khóa': 'Disabled',
   'Đang hoạt động': 'Active',
   'Lưu trữ': 'Archived',
@@ -46,4 +46,23 @@ export const LABELS_EN: Record<string, string> = {
   'Chưa phân loại': 'Uncategorised',
   'Ẩn danh': 'Anonymous',
   'Trợ lý AI': 'AI assistant',
+  // exit ticket questions
+  'Hôm nay bạn học được điều gì quan trọng nhất?': 'What was the most important thing you learned today?',
+  'Bạn còn chưa hiểu vấn đề nào?': 'What is still unclear to you?',
+  'Bạn muốn tìm hiểu thêm nội dung gì?': 'What would you like to learn more about?',
+  // AI jobs
+  'Phân loại chủ đề': 'Topic classification',
+  'Gom nhóm câu hỏi': 'Question clustering',
+  'Tóm tắt buổi học': 'Session summary',
+  'Tổng hợp câu trả lời hoạt động': 'Activity response summary',
+  'Gợi ý giảng dạy': 'Teaching insights',
+  'Đang chờ': 'Queued',
+  'Đang chạy': 'Running',
+  'Hoàn tất': 'Completed',
+  'Lỗi': 'Failed',
+  // engagement score components
+  'Hoàn thành hoạt động trên lớp': 'In-class activity completion',
+  'Trả lời câu hỏi/thảo luận': 'Answers and discussion',
+  'Đặt câu hỏi liên quan': 'Relevant questions',
+  'Đóng góp phản hồi có ích': 'Helpful contributions',
 };
