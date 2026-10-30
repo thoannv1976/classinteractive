@@ -218,3 +218,42 @@ Tab **Cài đặt** (giảng viên phụ trách/quản trị) → chỉnh rồi 
 | “Lớp đã dùng hết lượt AI trong ngày” | Tăng **Lượt AI/ngày của lớp** hoặc chờ ngày hôm sau |
 | “Đã đạt hạn mức chi phí AI của tháng” | Liên hệ quản trị viên |
 | Không mở được hoạt động | Buổi học phải đang diễn ra hoặc tạm dừng |
+
+## Phase 2 – Phân tích lớp học thông minh
+
+> Các chức năng AI dưới đây chạy nền: bấm nút xong có thể làm việc khác, kết quả tự hiện khi xong. Cần lớp bật AI (Cài đặt) và quản trị viên đã nhập API key.
+
+### Tự động khi kết thúc buổi học
+Khi bấm **Kết thúc** buổi học, hệ thống tự: phân loại chủ đề cho câu hỏi mới, gom nhóm câu hỏi của buổi, và soạn **bản tóm tắt buổi học** (bản nháp). Bạn nhận thông báo khi bản tóm tắt sẵn sàng. Có thể tắt trong **Cài đặt → Trợ lý AI**.
+
+### Chủ đề (tab Chủ đề)
+- **Danh mục chủ đề**: thêm, đổi tên, sửa mô tả, xóa, gộp nhiều chủ đề; bấm vào một chủ đề để xem các chuỗi hỏi đáp, chọn bài và **chuyển** hoặc **tách** sang chủ đề mới.
+- **Duyệt đề xuất của AI**: bấm **Phân loại chủ đề** (cả lớp hoặc một buổi). Mỗi bài hiện chủ đề AI đề xuất → **Chấp nhận / Sửa / Bỏ qua** hoặc **Chấp nhận tất cả**. Đề xuất của AI được lưu lại để đối chiếu với nhãn cuối cùng của bạn.
+
+### Nhóm câu hỏi (tab Nhóm câu hỏi)
+AI gom các câu hỏi cùng ý (dù diễn đạt khác) thành nhóm vấn đề, kèm số câu hỏi, số sinh viên, số buổi, mức độ quan tâm và trạng thái giải đáp. Chọn phạm vi **Cả lớp** hoặc từng buổi → **Gom nhóm câu hỏi**. Bạn có thể đổi tên/mô tả, đánh dấu đã giải quyết, gộp nhóm, chuyển hoặc bỏ câu hỏi khỏi nhóm. Nhóm bạn đã chỉnh sửa được giữ nguyên khi chạy lại.
+
+Khi sinh viên soạn câu hỏi, hệ thống gợi ý câu hỏi tương tự đã có (theo nghĩa nếu có key OpenAI/Gemini, nếu không thì theo từ khóa).
+
+### Phiếu cuối buổi
+**Tạo hoạt động → Phiếu cuối buổi (Exit ticket)**: sinh viên trả lời 3 câu hỏi chuẩn trong một lần nộp. Trong thẻ hoạt động, xem câu trả lời theo từng câu, đánh dấu sao để trình chiếu, và bấm **Tổng hợp câu trả lời hoạt động** để AI tóm tắt ý chính, khó khăn, gợi ý (cũng có cho hoạt động trả lời tự do).
+
+### Tóm tắt buổi học (tab Tóm tắt trong trang điều hành buổi học)
+AI soạn 8 mục: nội dung chính, chủ đề, câu hỏi quan trọng, câu trả lời đã xác nhận, vấn đề chưa giải đáp, nội dung khó, nội dung được quan tâm, gợi ý buổi sau. Mỗi nhận định có liên kết tới bài gốc. Quy trình: **sửa → Lưu → Duyệt → Công bố**. Chỉ bản đã duyệt và công bố mới hiện cho sinh viên; sửa bản đã công bố sẽ đưa về bản nháp và gỡ công bố.
+
+### Gợi ý giảng dạy (tab Gợi ý AI)
+**Phân tích bằng AI** đưa ra nhận định theo nhóm (chủ đề nhiều câu hỏi, khái niệm dễ nhầm, câu hỏi chưa trả lời, cần giảng giải thêm, mức độ tham gia chung, gợi ý), mỗi nhận định có **căn cứ** số liệu và liên kết bài gốc, kèm **câu hỏi tiếp nối** có thể sao chép để dùng ở buổi sau. AI không đánh giá năng lực hay động cơ của từng sinh viên.
+
+### Điểm tham gia (tab Điểm tham gia)
+- Điểm tham khảo 0–100 từ 5 thành phần (mặc định: hoạt động 30%, trả lời/thảo luận 25%, đặt câu hỏi 20%, đóng góp có ích 15%, phiếu cuối buổi 10%).
+- Chỉ tính trên cơ hội thực tế: buổi đã diễn ra và hoạt động đã mở; thành phần chưa có cơ hội được bỏ qua; mỗi buổi chỉ tính tối đa một số đóng góp (chống spam).
+- **Cấu hình công thức**: đổi trọng số (tổng 100%), giới hạn mỗi buổi, cách tính số buổi (tất cả buổi đã diễn ra / chỉ buổi có mặt). Mỗi lần đổi tạo phiên bản mới.
+- **Điều chỉnh**: cộng/trừ điểm cho từng sinh viên kèm ghi chú.
+- **Xác nhận điểm**: lưu bản chính thức (kèm phiên bản công thức); bảng "Engagement Scores" trong file Excel có điểm đã xác nhận gần nhất. Chưa xác nhận thì chỉ là điểm tham khảo.
+- Bật **Cho sinh viên xem điểm tham khảo của mình** nếu muốn sinh viên thấy điểm và cách tính.
+
+### Báo cáo trình bày (tab Báo cáo)
+7 báo cáo in/PDF: buổi học, lớp học phần, cá nhân sinh viên, chủ đề kiến thức, câu hỏi chưa giải đáp, phân tích tương tác, gợi ý giảng dạy. Bấm **Mở bản in** → **In / Lưu PDF**. File Excel có thêm bảng **Engagement Scores** và **Question Clusters**.
+
+### Ngôn ngữ
+Chuyển **VI / EN** ở góc dưới thanh bên (hoặc thanh trên điện thoại). Ngôn ngữ được lưu theo tài khoản; file Excel và thông báo lỗi theo ngôn ngữ đang chọn; AI trả lời theo ngôn ngữ của câu hỏi.

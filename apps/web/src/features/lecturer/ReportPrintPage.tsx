@@ -112,11 +112,11 @@ const StatGrid = ({ children }: { children: ReactNode }) => <div className="grid
 function PTable({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
     <div className="overflow-x-auto print:overflow-visible">
-      <table className="w-full border-collapse text-[13px]">
+      <table className="w-full border-collapse text-xs">
         <thead className="print:table-header-group">
           <tr>
             {head.map((h, i) => (
-              <th key={i} className="border border-slate-300 bg-slate-100 px-2 py-1.5 text-left text-xs font-semibold">
+              <th key={i} className="border border-slate-300 bg-slate-100 px-1.5 py-1 text-left text-[11px] font-semibold leading-tight">
                 {h}
               </th>
             ))}
@@ -127,7 +127,7 @@ function PTable({ head, children }: { head: ReactNode[]; children: ReactNode }) 
     </div>
   );
 }
-const PTd = ({ children, className }: { children?: ReactNode; className?: string }) => <td className={cn('border border-slate-300 px-2 py-1 align-top', className)}>{children}</td>;
+const PTd = ({ children, className }: { children?: ReactNode; className?: string }) => <td className={cn('border border-slate-300 px-1.5 py-1 align-top', className)}>{children}</td>;
 const num = 'text-right tabular-nums';
 
 function ChartBox({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -177,9 +177,9 @@ function InteractionBars({ data }: { data: ReturnType<typeof useSessionChart> })
         <XAxis dataKey="name" fontSize={11} />
         <YAxis allowDecimals={false} fontSize={11} />
         <Legend wrapperStyle={{ fontSize: 11 }} />
-        <Bar dataKey="questions" name={t('Câu hỏi', { context: 'n' })} fill="#ea580c" isAnimationActive={false} />
-        <Bar dataKey="answers" name={t('Trả lời', { context: 'n' })} fill="#0f766e" isAnimationActive={false} />
-        <Bar dataKey="comments" name={t('Bình luận', { context: 'n' })} fill="#94a3b8" isAnimationActive={false} />
+        <Bar dataKey="questions" name={t('Câu hỏi', { context: 'n' })} fill="#ea580c" isAnimationActive={false} maxBarSize={48} />
+        <Bar dataKey="answers" name={t('Trả lời', { context: 'n' })} fill="#0f766e" isAnimationActive={false} maxBarSize={48} />
+        <Bar dataKey="comments" name={t('Bình luận', { context: 'n' })} fill="#94a3b8" isAnimationActive={false} maxBarSize={48} />
       </BarChart>
     </ChartBox>
   );
@@ -209,7 +209,7 @@ function DistributionBars({ data }: { data: Overview['distribution'] }) {
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="label" fontSize={11} />
         <YAxis allowDecimals={false} fontSize={11} />
-        <Bar dataKey="count" name={t('Sinh viên', { context: 'n' })} fill="#1d4ed8" isAnimationActive={false} label={{ position: 'top', fontSize: 11 }} />
+        <Bar dataKey="count" name={t('Sinh viên', { context: 'n' })} fill="#1d4ed8" isAnimationActive={false} maxBarSize={48} label={{ position: 'top', fontSize: 11 }} />
       </BarChart>
     </ChartBox>
   );
@@ -343,7 +343,7 @@ function InteractionsReport({ classId }: { classId: string }) {
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="name" fontSize={11} />
             <YAxis domain={[0, 100]} fontSize={11} />
-            <Bar dataKey="rate" name={t('Tỷ lệ tương tác')} fill="#0f766e" isAnimationActive={false} label={{ position: 'top', fontSize: 10 }} />
+            <Bar dataKey="rate" name={t('Tỷ lệ tương tác')} fill="#0f766e" isAnimationActive={false} maxBarSize={48} label={{ position: 'top', fontSize: 10 }} />
           </BarChart>
         </ChartBox>
       </Section>
@@ -474,7 +474,7 @@ function SessionReport({ classId, sessionId }: { classId: string; sessionId: str
     <>
       <Section title={t('Thông tin buổi học')}>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="font-medium text-slate-500">{t('Buổi học')}</dt>
+          <dt className="font-medium text-slate-500">{t('Tên buổi học')}</dt>
           <dd className="font-semibold">{sessionLabel(s)}</dd>
           <dt className="font-medium text-slate-500">{t('Thời gian')}</dt>
           <dd>
@@ -680,7 +680,8 @@ function StudentReport({ classId, uid }: { classId: string; uid: string | null }
           )}
         </dl>
       )}
-      <div className="mt-6">
+      {/* Let the reused profile cards shrink to the A4 width (long labels would otherwise overflow). */}
+      <div className="mt-6 [&_.grid>*]:min-w-0 [&_p]:break-words">
         <StudentProfileView classId={classId} uid={uid} linkBase={`/teach/classes/${classId}`} />
       </div>
       <p className="mt-4 text-xs text-slate-500">

@@ -10,7 +10,16 @@ import { Button, type ButtonProps } from '@/components/ui/button';
 import { api, errorMessage } from '@/lib/api';
 import { db } from '@/lib/firebase';
 import { useLiveQuery } from '@/lib/firestore';
+import { tk } from '@/i18n';
 import { timeAgo } from '@/lib/utils';
+
+const PROGRESS = {
+  collect: tk('đang thu thập dữ liệu'),
+  generate: tk('đang tạo nội dung'),
+  embeddings: tk('đang tính độ tương đồng'),
+  naming: tk('đang đặt tên nhóm'),
+  llm: tk('đang gom nhóm'),
+} as Record<string, string>;
 
 /** Latest background AI jobs of a class (realtime; class staff only). */
 export function useClassJobs(classId: string) {
@@ -100,7 +109,7 @@ export function AiJobButton({
     <span className="inline-flex flex-wrap items-center gap-2">
       <Button variant={variant} size={size} className={className} onClick={start} loading={starting || !!running} disabled={disabled || !!running}>
         {!starting && !running && <Sparkles className="h-4 w-4" />}
-        {running ? (job.progress ? `${t('Đang xử lý…')} ${job.progress}` : t('Đang xử lý…')) : (label ?? t(AI_JOB_TYPE_LABELS[type]))}
+        {running ? (job.progress ? `${t('Đang xử lý…')} ${PROGRESS[job.progress] ? t(PROGRESS[job.progress]!) : job.progress}` : t('Đang xử lý…')) : (label ?? t(AI_JOB_TYPE_LABELS[type]))}
       </Button>
       {job && !running && (
         <span className="text-xs text-muted">

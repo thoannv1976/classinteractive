@@ -8,7 +8,7 @@ const en: Record<string, string> = {
   'Đã ẩn điểm tham khảo với sinh viên': 'Reference scores are now hidden from students',
   'Đã xác nhận điểm': 'Scores confirmed',
   'Điểm tham gia là điểm tham khảo (0–100), chỉ tính trên các cơ hội thực sự đã diễn ra: {{n}} buổi học đã tổ chức và các hoạt động đã mở. Thành phần nào chưa có cơ hội sẽ được bỏ qua và trọng số của các thành phần còn lại được chia lại, nên một buổi không có hoạt động không làm giảm điểm của ai.':
-    'The engagement score is a reference value (0–100) computed only from opportunities that actually happened: {{n}} sessions held and the activities that were opened. Components with no opportunity are skipped and the remaining weights are re-normalised, so a session without activities never lowers anyone’s score.',
+    'The engagement score is a reference value (0–100) computed only from opportunities that actually happened (sessions held so far: {{n}}) and the activities that were opened. Components with no opportunity are skipped and the remaining weights are re-normalised, so a session without activities never lowers anyone’s score.',
   'Để chống spam, mỗi buổi chỉ tính tối đa {{answers}} trả lời/thảo luận, {{questions}} câu hỏi và {{helpful}} phản hồi có ích.':
     'To prevent spam, each session counts at most {{answers}} answers/discussion posts, {{questions}} questions and {{helpful}} helpful contributions.',
   'Đây không phải điểm chính thức cho đến khi giảng viên xác nhận điểm.': 'It is not an official grade until the lecturer confirms scores.',

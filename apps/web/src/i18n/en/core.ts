@@ -241,6 +241,11 @@ const en: Record<string, string> = {
   'Nhóm câu hỏi': 'Question groups',
   'Điểm tham gia': 'Engagement score',
   'Gợi ý AI': 'AI insights',
+  'đang thu thập dữ liệu': 'collecting data',
+  'đang tạo nội dung': 'generating',
+  'đang tính độ tương đồng': 'computing similarity',
+  'đang đặt tên nhóm': 'naming groups',
+  'đang gom nhóm': 'grouping',
 };
 
 export default en;

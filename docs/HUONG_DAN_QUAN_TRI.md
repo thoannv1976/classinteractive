@@ -162,3 +162,17 @@ Tài khoản đăng nhập Firebase Auth không nằm trong bản export Firesto
 | “Đã đạt hạn mức chi phí AI của tháng” | Tăng **Hạn mức chi phí/tháng** nếu được phép, hoặc chờ sang tháng |
 | “Bạn thao tác quá nhanh…” hàng loạt | Giới hạn tần suất (600 yêu cầu/phút mỗi người, 300/phút mỗi IP cho đăng nhập). Nếu cả lớp bị lỗi đăng nhập cùng lúc qua một IP, thử lại sau một phút |
 | Lỗi khi lấy danh sách/thống kê sau khi triển khai mới | Kiểm tra đã triển khai `firebase/firestore.indexes.json` và chỉ mục đã xây xong (xem [DEPLOYMENT.md](./DEPLOYMENT.md)) |
+
+## Phase 2 – Cấu hình AI nâng cao
+
+### Nhập API key trên giao diện (quản trị cấp cao)
+**Quản trị → Cấu hình AI** → trong từng nhà cung cấp, dán key vào ô **API key** → **Lưu key**. Key được lưu thành phiên bản mới trong Google Cloud Secret Manager (`anthropic-api-key`, `openai-api-key`, `gemini-api-key`), có hiệu lực trong khoảng 1 phút, không bao giờ hiển thị lại (chỉ 4 ký tự cuối). **Kiểm tra kết nối** gọi thử mô hình đã cấu hình. Chỉ tài khoản **Quản trị cấp cao** nhập/xóa được key.
+
+### Mô hình theo tác vụ
+Card **Mô hình theo tác vụ**: chọn nhà cung cấp/mô hình riêng cho trả lời câu hỏi, phân loại chủ đề, gom nhóm, tóm tắt buổi học, gợi ý giảng dạy, tổng hợp hoạt động. Ví dụ dùng mô hình rẻ cho phân loại, mô hình mạnh cho tóm tắt. Để trống = dùng mặc định.
+
+### Embedding (gom nhóm theo ngữ nghĩa)
+Gom nhóm câu hỏi và gợi ý câu hỏi trùng dùng embedding của **OpenAI** (`text-embedding-3-small`) hoặc **Gemini** (`gemini-embedding-001`). Claude không có API embedding – nếu chỉ có key Claude, hệ thống vẫn gom nhóm bằng mô hình ngôn ngữ (chậm và tốn hơn). Ngưỡng tương đồng mặc định 0.6 (OpenAI) / 0.8 (Gemini): tăng nếu nhóm gộp quá nhiều câu khác ý, giảm nếu bỏ sót câu cùng ý.
+
+### Tác vụ chạy nền
+Các tác vụ AI dài chạy qua hàng đợi **Cloud Tasks** `classinteract-ai` (script triển khai tự tạo). Nếu tác vụ báo lỗi, xem log: `gcloud run services logs read classinteract-api --region asia-southeast1`.

@@ -70,6 +70,7 @@ const en: Record<string, string> = {
   'Hãy chọn buổi học ở trang Báo cáo.': 'Select a session on the Reports page.',
   'bắt đầu {{time}}': 'started {{time}}',
   'Số liệu buổi học': 'Session figures',
+  'Tên buổi học': 'Session',
   'Hoạt động và kết quả': 'Activities and results',
   'Buổi học không có hoạt động.': 'This session has no activities.',
   'Câu hỏi và trả lời': 'Questions and answers',

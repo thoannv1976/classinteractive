@@ -96,9 +96,20 @@ export async function runJob(classId: string, jobId: string) {
   const handler = handlers.get(job.type);
   try {
     if (!handler) throw new AppError(500, 'NO_HANDLER', `No handler for ${job.type}`);
-    const result = await handler(job, async (text) => {
+    const progress = async (text: string) => {
       await ref.update({ progress: text }).catch(() => undefined);
-    });
+    };
+    let result: Record<string, unknown> | undefined;
+    // Firestore contention (ABORTED) is transient: retry a couple of times before failing.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        result = await handler(job, progress);
+        break;
+      } catch (e) {
+        if ((e as { code?: number }).code !== 10 || attempt >= 3) throw e;
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
+    }
     await ref.update({ status: 'completed', result, progress: null, completedAt: now() });
   } catch (e) {
     const msg = e instanceof AppError ? e.message : (e as Error).message;

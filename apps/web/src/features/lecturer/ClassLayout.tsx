@@ -61,7 +61,7 @@ export function ClassLayout() {
               cn('-mb-px shrink-0 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-muted hover:text-fg', isActive && 'border-primary text-primary')
             }
           >
-            {t(tab.label)}
+            {t(tab.label, tab.label === 'Sinh viên' ? { context: 'n' } : undefined)}
           </NavLink>
         ))}
       </nav>

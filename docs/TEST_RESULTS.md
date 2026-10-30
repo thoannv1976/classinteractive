@@ -27,14 +27,32 @@ Chạy lại toàn bộ: `pnpm lint && pnpm typecheck && pnpm test && pnpm build
 
 | Bộ test | Số test | Kết quả |
 |---|---|---|
-| Unit – `packages/shared` | 10 | Đạt |
-| Unit – `apps/api` (đọc file danh sách CSV/XLSX) | 4 | Đạt |
-| Unit – `apps/web` | 3 | Đạt |
-| Integration – API trên Emulator | 22 | Đạt |
+| Unit – `packages/shared` (quyền, chỉ số, điểm tham gia) | 13 | Đạt |
+| Unit – `apps/api` (đọc file danh sách, bao phủ bản dịch) | 6 | Đạt |
+| Unit – `apps/web` (tiện ích, bao phủ bản dịch) | 5 | Đạt |
+| Integration – API trên Emulator (Phase 1 + Phase 2) | 34 | Đạt |
 | Security Rules | 8 | Đạt |
-| E2E Playwright (desktop + mobile) | 8 | Đạt |
+| E2E Playwright (desktop + mobile, gồm Phase 2 và song ngữ) | 11 | Đạt |
 
 ## Chưa kiểm thử
 
 - Tải 100–500 người dùng đồng thời (mục 50): cần môi trường staging trên GCP. Thiết kế đã giới hạn listener, dùng bộ đếm tổng hợp và giới hạn tần suất theo người dùng (không theo IP, vì cả lớp thường chung một IP).
 - Triển khai thật trên GCP: thực hiện bằng `infrastructure/deploy.sh` trong Cloud Shell (môi trường phát triển không có quyền vào project).
+
+## Phase 2
+
+| Chức năng | Kiểm thử | Kết quả |
+|---|---|---|
+| Phiếu cuối buổi (3 câu, tính riêng) | `phase2.int.test.ts` | Đạt |
+| AI phân loại chủ đề + duyệt (lưu đề xuất AI) | `phase2.int.test.ts` | Đạt |
+| Đổi tên / chuyển / gộp chủ đề | `phase2.int.test.ts` | Đạt |
+| Gom nhóm câu hỏi (embedding), giữ nhóm đã chỉnh sửa | `phase2.int.test.ts` | Đạt |
+| Gợi ý câu hỏi tương tự theo nghĩa | `phase2.int.test.ts` | Đạt |
+| Tóm tắt buổi học: nháp → duyệt → công bố, trích nguồn hợp lệ | `phase2.int.test.ts`, E2E | Đạt |
+| Gợi ý giảng dạy có căn cứ | `phase2.int.test.ts` | Đạt |
+| Điểm tham gia: trọng số, giới hạn, cơ hội thực tế, phiên bản, điều chỉnh, xác nhận | `score.test.ts`, `phase2.int.test.ts` | Đạt |
+| Tự động chạy AI khi kết thúc buổi | `phase2.int.test.ts`, E2E | Đạt |
+| Song ngữ Việt/Anh (giao diện, lỗi API, xuất file) | `i18n.test.ts` (web, api), `api.int.test.ts`, E2E | Đạt |
+| API key nhập trên giao diện, không lộ key | `api.int.test.ts` | Đạt |
+
+Các test AI dùng bộ mô phỏng (`AI_FAKE_PROVIDER=1`); với key thật, chất lượng nội dung AI cần được giảng viên đánh giá khi sử dụng.

@@ -6,7 +6,9 @@
 
 - **Sinh viên**: đăng ký bằng mã SV (có trong danh sách lớp) + tự đặt mật khẩu; quét QR vào buổi học; hỏi (có thể ẩn danh), trả lời, phản hồi nhanh, bình chọn; làm khảo sát/quiz; xem mức độ tham gia của mình.
 - **Giảng viên**: tạo lớp, nhập danh sách CSV/XLSX, điều hành buổi học realtime, kiểm duyệt, tạo hoạt động, trình chiếu, AI soạn nháp câu trả lời để duyệt, thống kê tham gia, heatmap, chủ đề, xuất Excel.
-- **Quản trị**: tài khoản, phân quyền, khóa/mở, lớp và phân công, cấu hình AI (Claude/OpenAI/Gemini), nhật ký thao tác.
+- **Quản trị**: tài khoản, phân quyền, khóa/mở, lớp và phân công, cấu hình AI (Claude/OpenAI/Gemini, nhập API key trên giao diện), nhật ký thao tác.
+- **Phase 2**: AI phân loại chủ đề, gom nhóm câu hỏi, tóm tắt buổi học, gợi ý giảng dạy, phiếu cuối buổi, điểm tham gia có trọng số, 7 báo cáo in/PDF.
+- **Song ngữ Việt / Anh** cho toàn bộ ứng dụng.
 
 ## Cấu trúc
 
@@ -55,10 +57,10 @@ Mở http://localhost:5173. Tài khoản mẫu:
 
 | Bộ test | Kết quả |
 |---|---|
-| Unit (shared 10, api 4, web 3) | 17/17 đạt |
-| Integration API trên Emulator | 22/22 đạt |
+| Unit (shared 13, api 6, web 5) | 24/24 đạt |
+| Integration API trên Emulator | 34/34 đạt |
 | Security Rules | 8/8 đạt |
-| E2E Playwright | 8/8 đạt |
+| E2E Playwright | 11/11 đạt |
 
 Đối chiếu kịch bản nghiệm thu (mục 56 của đặc tả): xem [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
 

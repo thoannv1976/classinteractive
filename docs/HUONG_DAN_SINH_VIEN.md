@@ -193,3 +193,11 @@ Biểu đồ **Xu hướng tham gia theo buổi** và **Lịch sử đóng góp*
 | Không thấy nút Sửa/Xóa | Đã quá thời gian cho phép sửa của lớp. |
 | Bị đăng xuất đột ngột | Mật khẩu vừa được đổi/đặt lại hoặc tài khoản bị khóa. Đăng nhập lại hoặc liên hệ giảng viên. |
 | Không thấy lớp sau khi đăng ký | Lớp có thể đã được lưu trữ, hoặc bạn bị xóa khỏi danh sách. Liên hệ giảng viên. |
+
+## Chức năng mới
+
+- **Ngôn ngữ**: chuyển **VI / EN** ở trang đăng nhập, thanh trên (điện thoại) hoặc trang Hồ sơ. Lựa chọn được lưu cho tài khoản.
+- **Phiếu cuối buổi**: trong tab Hoạt động, trả lời 3 câu hỏi (học được gì, còn chưa hiểu gì, muốn tìm hiểu thêm gì). Có thể sửa khi phiếu còn mở.
+- **Gợi ý câu hỏi tương tự**: khi bạn soạn câu hỏi, hệ thống hiện các câu hỏi gần giống đã có – hãy bình chọn câu đó thay vì gửi trùng.
+- **Tóm tắt buổi học**: sau khi giảng viên duyệt và công bố, bản tóm tắt hiện ở đầu tab Hỏi đáp của buổi học, có liên kết tới các câu hỏi gốc.
+- **Điểm tham gia tham khảo**: nếu giảng viên bật, trang **Mức độ tham gia của tôi** → chọn lớp sẽ hiện điểm và cách tính. Đây không phải điểm chính thức.
