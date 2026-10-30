@@ -1,3 +1,59 @@
-const en: Record<string, string> = {};
+/** Phase 2 – session summary and exit tickets. */
+const en: Record<string, string> = {
+  // session summary (lecturer editor)
+  'Tóm tắt': 'Summary',
+  'Nội dung học tập chính': 'Main learning content',
+  'Các chủ đề được thảo luận': 'Topics discussed',
+  'Những câu hỏi quan trọng': 'Key questions',
+  'Các câu trả lời đã được xác nhận': 'Confirmed answers',
+  'Các vấn đề chưa được giải đáp': 'Unresolved issues',
+  'Những nội dung sinh viên gặp khó khăn': 'Content students struggled with',
+  'Những nội dung được nhiều sinh viên quan tâm': 'Content many students were interested in',
+  'Gợi ý cho buổi học tiếp theo': 'Suggestions for the next session',
+  'Xem bài đăng nguồn': 'View source post',
+  'Bài đăng nguồn {{n}}': 'Source post {{n}}',
+  'Tạo tóm tắt bằng AI': 'Generate summary with AI',
+  'Chưa có bản tóm tắt buổi học': 'No session summary yet',
+  'AI tổng hợp hỏi đáp, hoạt động và phiếu cuối buổi thành một bản nháp. Bạn kiểm tra, chỉnh sửa và duyệt trước khi công bố cho sinh viên.':
+    'AI combines the Q&A, activities and exit tickets into a draft. You review, edit and approve it before publishing to students.',
+  'Đã lưu bản tóm tắt': 'Summary saved',
+  'Đã duyệt bản tóm tắt': 'Summary approved',
+  'Đã ngừng công bố bản tóm tắt': 'Summary unpublished',
+  'Đã công bố bản tóm tắt cho sinh viên': 'Summary published to students',
+  'Đã duyệt': 'Approved',
+  'Bản nháp': 'Draft',
+  'Đã công bố cho sinh viên': 'Published to students',
+  'Chưa công bố': 'Not published',
+  'Có thay đổi chưa lưu': 'Unsaved changes',
+  'AI tạo {{time}}': 'AI-generated {{time}}',
+  'đã chỉnh sửa': 'edited',
+  'Bản tóm tắt đang được công bố. Lưu chỉnh sửa sẽ đưa bản tóm tắt về Bản nháp và ngừng công bố; bạn cần duyệt và công bố lại.':
+    'This summary is published. Saving edits returns it to Draft and unpublishes it; you will need to approve and publish it again.',
+  'Lưu chỉnh sửa sẽ đưa bản tóm tắt về Bản nháp; bạn cần duyệt lại.': 'Saving edits returns the summary to Draft; you will need to approve it again.',
+  'Chưa có mục nào': 'No items yet',
+  'Xóa mục': 'Remove item',
+  'Thêm mục': 'Add item',
+  'Hủy thay đổi': 'Discard changes',
+  'Lưu và duyệt': 'Save and approve',
+  'Ngừng công bố': 'Unpublish',
+  'Công bố cho sinh viên': 'Publish to students',
+  // session summary (student view)
+  'Tóm tắt buổi học (giảng viên đã duyệt)': 'Session summary (approved by the lecturer)',
+  'Thu gọn': 'Show less',
+  'Xem đầy đủ': 'Show full summary',
+  // exit tickets & activity AI summary
+  'Sinh viên trả lời ba câu hỏi:': 'Students answer three questions:',
+  'Trả lời ít nhất một câu.': 'Answer at least one question.',
+  '{{n}} phiếu đã nộp · đánh dấu sao để hiển thị trên màn hình trình chiếu': '{{n}} tickets submitted · star an answer to show it on the presenter screen',
+  'Câu {{n}}': 'Question {{n}}',
+  'Tổng hợp bằng AI': 'AI synthesis',
+  'Tổng hợp lại': 'Synthesize again',
+  'Tổng hợp câu trả lời bằng AI': 'Synthesize responses with AI',
+  'Dựa trên {{n}} câu trả lời · {{time}} · cần giảng viên kiểm tra': 'Based on {{n}} responses · {{time}} · to be reviewed by the lecturer',
+  'Các ý chính': 'Main themes',
+  'Số câu trả lời (ước tính)': 'Number of responses (estimated)',
+  'Điểm sinh viên còn chưa hiểu': 'What students still do not understand',
+  'Gợi ý cho giảng viên': 'Suggestions for the lecturer',
+};
 
 export default en;

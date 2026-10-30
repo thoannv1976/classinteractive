@@ -88,6 +88,26 @@ export function ClassSettingsPage() {
               <Input id="q2" type="number" min={0} max={100} value={st.aiStudentDailyQuota} onChange={(e) => set('aiStudentDailyQuota', Number(e.target.value))} disabled={!st.aiEnabled} />
             </Field>
           </div>
+          <Switch
+            id="autoai"
+            checked={st.autoAiOnSessionEnd ?? true}
+            onCheckedChange={(v) => set('autoAiOnSessionEnd', v)}
+            disabled={!st.aiEnabled}
+            label={t('Tự động phân loại chủ đề, gom nhóm câu hỏi và tóm tắt khi kết thúc buổi học')}
+            description={t('Bản tóm tắt AI luôn là bản nháp cho tới khi giảng viên duyệt.')}
+          />
+        </CardBody>
+      </Card>
+      <Card>
+        <CardHeader title={t('Điểm tham gia')} description={t('Điểm tham khảo tính từ các cơ hội tham gia thực tế; chỉ là điểm chính thức sau khi giảng viên xác nhận.')} />
+        <CardBody>
+          <Switch
+            id="showscore"
+            checked={!!st.showScoreToStudents}
+            onCheckedChange={(v) => set('showScoreToStudents', v)}
+            label={t('Cho sinh viên xem điểm tham khảo của mình')}
+            description={t('Mỗi sinh viên chỉ xem được điểm của chính mình, kèm giải thích cách tính.')}
+          />
         </CardBody>
       </Card>
       <div className="flex justify-end">

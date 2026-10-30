@@ -3,8 +3,8 @@ import { CheckCircle2, Eye, EyeOff, Lock, Play, Plus, Star, Trash2, Trophy } fro
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { ActivityDoc, ActivityResultsDoc, ActivityType, SubmissionDoc } from '@classinteract/shared';
-import { ACTIVITY_STATUS_LABELS, ACTIVITY_TYPE_LABELS } from '@classinteract/shared';
+import type { ActivityDoc, ActivityResultsDoc, ActivityType, ClassDoc, SubmissionDoc, Time } from '@classinteract/shared';
+import { ACTIVITY_STATUS_LABELS, ACTIVITY_TYPE_LABELS, EXIT_TICKET_QUESTIONS } from '@classinteract/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
@@ -15,8 +15,10 @@ import { api, errorMessage } from '@/lib/api';
 import { useMe } from '@/lib/auth';
 import { db } from '@/lib/firebase';
 import { useLiveDoc, useLiveQuery, useOnceDoc } from '@/lib/firestore';
+import { useApi } from '@/lib/query';
 import { cn, requestId, timeAgo } from '@/lib/utils';
 import { tk } from '@/i18n';
+import { AiJobButton } from './AiJobs';
 import { sessionPath } from './hooks';
 
 const actPath = (classId: string, sessionId: string, a: ActivityDoc) => `${sessionPath(classId, sessionId)}/activities/${a.activityId}`;
@@ -77,19 +79,25 @@ export function StudentActivityCard({ classId, sessionId, activity: a, canSubmit
   const results = useLiveDoc<ActivityResultsDoc>(a.showResults ? `${actPath(classId, sessionId, a)}/results/summary` : null);
   const [choice, setChoice] = useState<string[] | null>(null);
   const [text, setText] = useState<string | null>(null);
+  const [exitAnswers, setExitAnswers] = useState<string[] | null>(null);
   const [sending, setSending] = useState(false);
   const selected = choice ?? mine?.optionIds ?? [];
   const answer = text ?? mine?.text ?? '';
+  const savedAnswers = EXIT_TICKET_QUESTIONS.map((_, i) => mine?.answers?.[i] ?? '');
+  const answers = exitAnswers ?? savedAnswers;
+  const answersChanged = answers.some((x, i) => x.trim() !== savedAnswers[i]!.trim());
   const open = a.status === 'open' && canSubmit;
   const correct = new Set(a.revealedCorrectOptionIds ?? []);
 
   const submit = async (optionIds = selected) => {
     setSending(true);
     try {
-      await api.post(`${apiPath(classId, sessionId, a)}/submissions`, { optionIds, text: answer, clientRequestId: requestId() });
+      const body = a.type === 'exit_ticket' ? { answers: answers.map((x) => x.trim()) } : { optionIds, text: answer };
+      await api.post(`${apiPath(classId, sessionId, a)}/submissions`, { ...body, clientRequestId: requestId() });
       toast.success(t('Đã gửi câu trả lời'));
       setChoice(null);
       setText(null);
+      setExitAnswers(null);
       setVersion((v) => v + 1);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -114,7 +122,31 @@ export function StudentActivityCard({ classId, sessionId, activity: a, canSubmit
         </p>
       )}
       <div className="mt-3">
-        {a.type === 'free_text' ? (
+        {a.type === 'exit_ticket' ? (
+          <div className="space-y-3">
+            {EXIT_TICKET_QUESTIONS.map((q, i) => (
+              <Field key={q} label={`${i + 1}. ${t(q)}`} htmlFor={`exit-${a.activityId}-${i}`}>
+                <Textarea
+                  id={`exit-${a.activityId}-${i}`}
+                  value={answers[i]}
+                  onChange={(e) => setExitAnswers(answers.map((x, j) => (j === i ? e.target.value : x)))}
+                  disabled={!open}
+                  placeholder={t('Nhập câu trả lời của bạn…')}
+                  maxLength={1000}
+                  className="min-h-[64px]"
+                />
+              </Field>
+            ))}
+            {open && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button size="sm" onClick={() => submit([])} loading={sending} disabled={!answers.some((x) => x.trim()) || !answersChanged}>
+                  {mine ? t('Cập nhật') : t('Gửi')}
+                </Button>
+                <span className="text-xs text-muted">{t('Trả lời ít nhất một câu.')}</span>
+              </div>
+            )}
+          </div>
+        ) : a.type === 'free_text' ? (
           <div className="space-y-2">
             <Textarea value={answer} onChange={(e) => setText(e.target.value)} disabled={!open} placeholder={t('Nhập câu trả lời của bạn…')} maxLength={3000} aria-label={t('Câu trả lời')} />
             {open && (
@@ -158,7 +190,7 @@ export function StudentActivityCard({ classId, sessionId, activity: a, canSubmit
           </div>
         )}
       </div>
-      {a.showResults && a.type !== 'free_text' && results.data && (
+      {a.showResults && a.type !== 'free_text' && a.type !== 'exit_ticket' && results.data && (
         <div className="mt-4 border-t border-border pt-3">
           <p className="mb-2 text-xs font-semibold uppercase text-muted">{t('Kết quả của lớp')}</p>
           <ResultBars activity={a} results={results.data} />
@@ -175,11 +207,12 @@ export function StaffActivityCard({ classId, sessionId, activity: a, onPresent }
   const base = apiPath(classId, sessionId, a);
   const results = useLiveDoc<ActivityResultsDoc>(`${actPath(classId, sessionId, a)}/results/summary`);
   const subsQ = useMemo(
-    () => (a.type === 'free_text' ? query(collection(db, actPath(classId, sessionId, a), 'submissions'), orderBy('submittedAt', 'desc')) : null),
+    () => (isTextActivity(a) ? query(collection(db, actPath(classId, sessionId, a), 'submissions'), orderBy('submittedAt', 'desc')) : null),
     [classId, sessionId, a],
   );
   const subs = useLiveQuery<SubmissionDoc>(subsQ);
   const [busy, setBusy] = useState(false);
+  const [question, setQuestion] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const call = async (fn: () => Promise<unknown>, msg?: string) => {
@@ -241,24 +274,40 @@ export function StaffActivityCard({ classId, sessionId, activity: a, onPresent }
         </div>
       </div>
       <div className="mt-4">
-        {a.type === 'free_text' ? (
+        {a.type === 'exit_ticket' ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted">{t('{{n}} phiếu đã nộp · đánh dấu sao để hiển thị trên màn hình trình chiếu', { n: total })}</p>
+            <div className="flex flex-wrap gap-1" role="tablist">
+              {EXIT_TICKET_QUESTIONS.map((q, i) => {
+                const n = subs.data.filter((s) => s.answers?.[i]?.trim()).length;
+                return (
+                  <button
+                    key={q}
+                    role="tab"
+                    aria-selected={question === i}
+                    onClick={() => setQuestion(i)}
+                    className={cn('rounded-full px-3 py-1 text-xs font-medium', question === i ? 'bg-fg text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}
+                  >
+                    {t('Câu {{n}}', { n: i + 1 })} · {n}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-sm font-medium">{t(EXIT_TICKET_QUESTIONS[question]!)}</p>
+            <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              {subs.data
+                .filter((s) => s.answers?.[question]?.trim())
+                .map((s) => (
+                  <SubmissionItem key={s.uid} s={s} text={s.answers![question]!} onFeature={() => call(() => api.post(`${base}/submissions/${s.uid}/feature`, { featured: !s.featured }))} />
+                ))}
+            </ul>
+          </div>
+        ) : a.type === 'free_text' ? (
           <div className="space-y-2">
             <p className="text-xs text-muted">{t('{{n}} câu trả lời · đánh dấu sao để hiển thị trên màn hình trình chiếu', { n: total })}</p>
             <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
               {subs.data.map((s) => (
-                <li key={s.uid} className={cn('rounded-lg border px-3 py-2 text-sm', s.featured ? 'border-amber-300 bg-amber-50' : 'border-border')}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-muted">{s.displayName} · {s.studentId}</span>
-                    <button
-                      onClick={() => call(() => api.post(`${base}/submissions/${s.uid}/feature`, { featured: !s.featured }))}
-                      aria-label={s.featured ? t('Bỏ nổi bật') : t('Đánh dấu nổi bật')}
-                      className="text-amber-500"
-                    >
-                      <Star className={cn('h-4 w-4', s.featured && 'fill-amber-400')} />
-                    </button>
-                  </div>
-                  <p className="mt-1 whitespace-pre-wrap">{s.text}</p>
-                </li>
+                <SubmissionItem key={s.uid} s={s} text={s.text} onFeature={() => call(() => api.post(`${base}/submissions/${s.uid}/feature`, { featured: !s.featured }))} />
               ))}
             </ul>
           </div>
@@ -273,6 +322,7 @@ export function StaffActivityCard({ classId, sessionId, activity: a, onPresent }
           </>
         )}
       </div>
+      {isTextActivity(a) && <ActivityAiSummary classId={classId} sessionId={sessionId} activity={a} responses={total} />}
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
@@ -286,6 +336,105 @@ export function StaffActivityCard({ classId, sessionId, activity: a, onPresent }
   );
 }
 
+const isTextActivity = (a: ActivityDoc) => a.type === 'free_text' || a.type === 'exit_ticket';
+
+function SubmissionItem({ s, text, onFeature }: { s: SubmissionDoc; text: string; onFeature: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <li className={cn('rounded-lg border px-3 py-2 text-sm', s.featured ? 'border-amber-300 bg-amber-50' : 'border-border')}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted">
+          {s.displayName} · {s.studentId}
+        </span>
+        <button onClick={onFeature} aria-label={s.featured ? t('Bỏ nổi bật') : t('Đánh dấu nổi bật')} className="text-amber-500">
+          <Star className={cn('h-4 w-4', s.featured && 'fill-amber-400')} />
+        </button>
+      </div>
+      <p className="mt-1 whitespace-pre-wrap">{text}</p>
+    </li>
+  );
+}
+
+/** Output of the summarize_activity job (activities/{a}/staff/aiSummary). */
+interface ActivityAiSummaryDoc {
+  overview: string;
+  themes: { title: string; detail: string; count: number }[];
+  difficulties: string[];
+  suggestions: string[];
+  responses: number;
+  generatedAt: Time;
+}
+
+/** Staff only: AI synthesis of free-text / exit-ticket responses. */
+function ActivityAiSummary({ classId, sessionId, activity: a, responses }: { classId: string; sessionId: string; activity: ActivityDoc; responses: number }) {
+  const { t } = useTranslation();
+  const meta = useApi<{ class: ClassDoc }>(`/classes/${classId}/sessions/${sessionId}`);
+  const res = useApi<{ summary: ActivityAiSummaryDoc | null }>(`${apiPath(classId, sessionId, a)}/ai-summary`);
+  if (meta.data && !meta.data.class.settings.aiEnabled) return null;
+  const sum = res.data?.summary;
+  return (
+    <div className="mt-4 space-y-3 border-t border-border pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase text-muted">{t('Tổng hợp bằng AI')}</p>
+        <AiJobButton
+          classId={classId}
+          type="summarize_activity"
+          sessionId={sessionId}
+          activityId={a.activityId}
+          size="sm"
+          label={sum ? t('Tổng hợp lại') : t('Tổng hợp câu trả lời bằng AI')}
+          disabled={responses === 0}
+          onDone={() => void res.refetch()}
+        />
+      </div>
+      {sum && (
+        <div className="space-y-3 rounded-lg bg-violet-50/60 p-3 text-sm">
+          <p className="text-xs text-muted">{t('Dựa trên {{n}} câu trả lời · {{time}} · cần giảng viên kiểm tra', { n: sum.responses, time: timeAgo(sum.generatedAt) })}</p>
+          {sum.overview && <p className="whitespace-pre-wrap leading-relaxed">{sum.overview}</p>}
+          {sum.themes?.length > 0 && (
+            <div>
+              <p className="mb-1 font-medium">{t('Các ý chính')}</p>
+              <ul className="space-y-1.5">
+                {sum.themes.map((th, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Badge tone="ai" className="mt-0.5 tabular-nums" title={t('Số câu trả lời (ước tính)')}>
+                      {th.count}
+                    </Badge>
+                    <span>
+                      <span className="font-medium">{th.title}</span>
+                      {th.detail && <span className="text-muted"> — {th.detail}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {sum.difficulties?.length > 0 && (
+            <div>
+              <p className="mb-1 font-medium">{t('Điểm sinh viên còn chưa hiểu')}</p>
+              <ul className="list-disc space-y-1 pl-5">
+                {sum.difficulties.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {sum.suggestions?.length > 0 && (
+            <div>
+              <p className="mb-1 font-medium">{t('Gợi ý cho giảng viên')}</p>
+              <ul className="list-disc space-y-1 pl-5">
+                {sum.suggestions.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PRESETS: { key: string; label: string; type: ActivityType; title: string; prompt: string; options: string[] }[] = [
   { key: 'understanding', label: tk('Kiểm tra mức độ hiểu (1 chạm)'), type: 'understanding', title: tk('Bạn đã hiểu nội dung này chưa?'), prompt: '', options: [] },
   { key: 'poll', label: tk('Khảo sát ý kiến'), type: 'poll', title: '', prompt: '', options: ['', ''] },
@@ -294,9 +443,9 @@ const PRESETS: { key: string; label: string; type: ActivityType; title: string; 
   {
     key: 'exit',
     label: tk('Phiếu cuối buổi (Exit ticket)'),
-    type: 'free_text',
+    type: 'exit_ticket',
     title: tk('Phiếu cuối buổi'),
-    prompt: tk('1. Hôm nay bạn học được điều gì quan trọng nhất?\n2. Bạn còn chưa hiểu vấn đề nào?\n3. Bạn muốn tìm hiểu thêm nội dung gì?'),
+    prompt: '',
     options: [],
   },
 ];
@@ -382,6 +531,16 @@ export function ActivityCreator({ open, onOpenChange, classId, sessionId }: { op
         <Field label={t('Mô tả thêm (không bắt buộc)')} htmlFor="act-prompt">
           <Textarea id="act-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={3000} />
         </Field>
+        {preset.type === 'exit_ticket' && (
+          <div className="rounded-lg border border-border p-3 text-sm">
+            <p className="mb-1 font-medium">{t('Sinh viên trả lời ba câu hỏi:')}</p>
+            <ol className="list-decimal space-y-0.5 pl-5 text-muted">
+              {EXIT_TICKET_QUESTIONS.map((q) => (
+                <li key={q}>{t(q)}</li>
+              ))}
+            </ol>
+          </div>
+        )}
         {hasOptions && (
           <div className="space-y-2">
             <p className="text-sm font-medium">{t('Phương án')}{preset.type === 'quiz' && ' ' + t('(đánh dấu đáp án đúng)')}</p>
@@ -413,7 +572,7 @@ export function ActivityCreator({ open, onOpenChange, classId, sessionId }: { op
           </div>
         )}
         <div className="space-y-3 rounded-lg bg-surface-2 p-3">
-          {preset.type !== 'free_text' && (
+          {preset.type !== 'free_text' && preset.type !== 'exit_ticket' && (
             <Switch id="show" checked={showResults} onCheckedChange={setShowResults} label={t('Sinh viên thấy kết quả tổng hợp')} description={t('Có thể bật/tắt sau.')} />
           )}
           <Switch id="now" checked={openNow} onCheckedChange={setOpenNow} label={t('Mở ngay cho sinh viên')} />

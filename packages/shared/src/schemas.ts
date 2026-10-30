@@ -386,7 +386,7 @@ export const aiSettingsSchema = z.object({
   timeoutMs: z.number().int().min(5000).max(120000),
   monthlyCostLimitUsd: z.number().min(0).max(100000),
   taskModels: z
-    .record(z.enum(AI_TASK_TYPES), z.object({ provider: z.enum(AI_PROVIDERS).nullable(), model: z.string().trim().max(100).nullable() }))
+    .partialRecord(z.enum(AI_TASK_TYPES), z.object({ provider: z.enum(AI_PROVIDERS).nullable(), model: z.string().trim().max(100).nullable() }))
     .optional(),
   embedding: z
     .object({ provider: z.enum(EMBEDDING_PROVIDERS).nullable(), model: requiredText(100), threshold: z.number().min(0.3).max(0.99) })

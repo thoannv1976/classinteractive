@@ -1,5 +1,5 @@
 import { collection, limit, orderBy, query, where } from 'firebase/firestore';
-import { Activity, Maximize2, MessageCircleQuestion, Pause, Play, Plus, RefreshCw, Square, Users } from 'lucide-react';
+import { Activity, FileText, Maximize2, MessageCircleQuestion, Pause, Play, Plus, RefreshCw, Square, Users } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { ActivityCreator, NoActivities, StaffActivityCard } from '@/components/c
 import { AiDraftDialog } from '@/components/classroom/AiDraftDialog';
 import { Composer } from '@/components/classroom/Composer';
 import { PostCard } from '@/components/classroom/PostCard';
+import { SessionSummaryEditor } from '@/components/classroom/SessionSummary';
 import { sessionPath, sortPosts, useActivities, useFeed } from '@/components/classroom/hooks';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -113,6 +114,7 @@ export function SessionControlPage() {
             <TabsTrigger value="feed"><MessageCircleQuestion className="h-4 w-4" /> {t('Bảng tin')} {stats.data?.openQuestionCount ? <Badge tone="accent">{stats.data.openQuestionCount}</Badge> : null}</TabsTrigger>
             <TabsTrigger value="activities"><Activity className="h-4 w-4" /> {t('Hoạt động')} {openActs > 0 && <Badge tone="success">{t('{{count}} đang mở', { count: openActs })}</Badge>}</TabsTrigger>
             <TabsTrigger value="people"><Users className="h-4 w-4" /> {t('Người tham gia')} <Badge>{stats.data?.attendeeCount ?? 0}</Badge></TabsTrigger>
+            <TabsTrigger value="summary"><FileText className="h-4 w-4" /> {t('Tóm tắt')}</TabsTrigger>
           </TabsList>
           <TabsContent value="feed" className="space-y-4">
             <Composer classId={classId} sessionId={sessionId} topics={s.topics} allowAnonymous={false} disabled={s.status !== 'open'} disabledReason={s.status === 'paused' ? t('Buổi học đang tạm dừng') : t('Bắt đầu buổi học để đăng bài')} existing={feed.data} />
@@ -177,6 +179,9 @@ export function SessionControlPage() {
           </TabsContent>
           <TabsContent value="people">
             <Attendance classId={classId} sessionId={sessionId} />
+          </TabsContent>
+          <TabsContent value="summary">
+            <SessionSummaryEditor classId={classId} sessionId={sessionId} />
           </TabsContent>
         </Tabs>
       </div>

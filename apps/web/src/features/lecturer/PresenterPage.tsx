@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router';
 import type { ActivityDoc, ActivityResultsDoc, PostDoc, SessionDoc, SessionStatsDoc, SubmissionDoc } from '@classinteract/shared';
-import { ACTIVITY_TYPE_LABELS } from '@classinteract/shared';
+import { ACTIVITY_TYPE_LABELS, EXIT_TICKET_QUESTIONS } from '@classinteract/shared';
 import { ResultBars } from '@/components/classroom/Activities';
 import { sessionPath, useActivities, useFeed } from '@/components/classroom/hooks';
 import { Spinner } from '@/components/ui/feedback';
@@ -127,9 +127,10 @@ function ActivityBoard({ classId, sessionId, activity }: { classId: string; sess
   const { t } = useTranslation();
   const base = `${sessionPath(classId, sessionId)}/activities/${activity.activityId}`;
   const results = useLiveDoc<ActivityResultsDoc>(`${base}/results/summary`);
+  const textual = activity.type === 'free_text' || activity.type === 'exit_ticket';
   const featuredQ = useMemo(
-    () => (activity.type === 'free_text' ? query(collection(db, base, 'submissions'), where('featured', '==', true), orderBy('updatedAt', 'desc'), limit(8)) : null),
-    [activity.type, base],
+    () => (textual ? query(collection(db, base, 'submissions'), where('featured', '==', true), orderBy('updatedAt', 'desc'), limit(8)) : null),
+    [textual, base],
   );
   const featured = useLiveQuery<SubmissionDoc>(featuredQ);
   return (
@@ -138,12 +139,25 @@ function ActivityBoard({ classId, sessionId, activity }: { classId: string; sess
       <h2 className="mt-1 text-4xl font-semibold">{activity.title}</h2>
       {activity.prompt && <p className="mt-3 whitespace-pre-wrap text-xl text-slate-600">{activity.prompt}</p>}
       <div className="mt-8">
-        {activity.type === 'free_text' ? (
+        {textual ? (
           featured.data.length ? (
             <ul className="grid gap-4 md:grid-cols-2">
-              {featured.data.map((f) => (
-                <li key={f.uid} className="rounded-xl bg-amber-50 p-5 text-xl">{f.text}</li>
-              ))}
+              {featured.data.map((f) =>
+                activity.type === 'exit_ticket' ? (
+                  <li key={f.uid} className="space-y-3 rounded-xl bg-amber-50 p-5">
+                    {EXIT_TICKET_QUESTIONS.map((q, i) =>
+                      f.answers?.[i]?.trim() ? (
+                        <div key={q}>
+                          <p className="text-base font-medium text-slate-500">{t(q)}</p>
+                          <p className="whitespace-pre-wrap text-xl">{f.answers[i]}</p>
+                        </div>
+                      ) : null,
+                    )}
+                  </li>
+                ) : (
+                  <li key={f.uid} className="rounded-xl bg-amber-50 p-5 text-xl">{f.text}</li>
+                ),
+              )}
             </ul>
           ) : (
             <p className="text-2xl text-slate-500">{t('{{count}} câu trả lời · đánh dấu sao để hiển thị câu trả lời tiêu biểu', { count: results.data?.submissionCount ?? 0 })}</p>

@@ -2,7 +2,8 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { AiProvider, AiSettingsDoc } from '@classinteract/shared';
+import type { AiProvider, AiSettingsDoc, AiTaskType, EmbeddingProvider } from '@classinteract/shared';
+import { AI_TASK_TYPES } from '@classinteract/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import { PageHeader, Table, Td, Th } from '@/components/ui/misc';
 import { Switch } from '@/components/ui/switch';
 import { api, errorMessage } from '@/lib/api';
 import { invalidate, useApi } from '@/lib/query';
+import { tk } from '@/i18n';
 import { formatDateTime } from '@/lib/utils';
 import { ApiKeyField, type KeyStatus } from './ApiKeyField';
 import type { Time } from '@classinteract/shared';
@@ -101,6 +103,8 @@ export function AiConfigPage() {
           <div className="flex justify-end"><Button onClick={save} loading={saving}>{t('Lưu cấu hình')}</Button></div>
         </CardBody>
       </Card>
+      <TaskModelsCard s={s} setS={setS} />
+      <EmbeddingCard s={s} setS={setS} onSave={save} saving={saving} />
       <Card>
         <CardHeader title={t('Lịch sử sử dụng AI')} description={usage.data?.months.map((m) => t('{{month}}: {{n}} lượt · ${{cost}}', { month: m.month, n: m.runs, cost: (m.costUsd ?? 0).toFixed(2) })).join(' | ')} />
         {usage.data?.recentRuns.length ? (
@@ -125,5 +129,116 @@ export function AiConfigPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+const TASK_LABELS: Record<AiTaskType, string> = {
+  answer: tk('Trả lời câu hỏi'),
+  classify: tk('Phân loại chủ đề'),
+  cluster: tk('Gom nhóm câu hỏi'),
+  summarize: tk('Tóm tắt buổi học'),
+  insights: tk('Gợi ý giảng dạy'),
+  activity_summary: tk('Tổng hợp câu trả lời hoạt động'),
+};
+
+type SetS = (s: AiSettingsDoc) => void;
+
+/** Optional provider / model per AI task (unset = default provider and its model). */
+function TaskModelsCard({ s, setS }: { s: AiSettingsDoc; setS: SetS }) {
+  const { t } = useTranslation();
+  const setTask = (task: AiTaskType, patch: { provider?: AiProvider | null; model?: string | null }) => {
+    const cur = s.taskModels?.[task] ?? { provider: null, model: null };
+    const next = { ...cur, ...patch };
+    if (patch.provider !== undefined && patch.provider !== cur.provider) next.model = null; // model belongs to a provider
+    // The API schema expects an entry for every task (null = default), so always send the full record.
+    const taskModels = Object.fromEntries(AI_TASK_TYPES.map((k) => [k, k === task ? next : (s.taskModels?.[k] ?? { provider: null, model: null })])) as NonNullable<AiSettingsDoc['taskModels']>;
+    setS({ ...s, taskModels });
+  };
+  return (
+    <Card>
+      <CardHeader title={t('Mô hình theo tác vụ')} description={t('Chọn nhà cung cấp và mô hình riêng cho từng tác vụ AI. Để trống để dùng nhà cung cấp mặc định và mô hình của nhà cung cấp đó.')} />
+      <CardBody className="space-y-3">
+        {AI_TASK_TYPES.map((task) => {
+          const cur = s.taskModels?.[task];
+          const prov = cur?.provider ?? null;
+          return (
+            <div key={task} className="grid items-end gap-3 sm:grid-cols-[1fr_200px_1fr]">
+              <p className="text-sm font-medium sm:pb-2.5">{t(TASK_LABELS[task])}</p>
+              <Field label={t('Nhà cung cấp')} htmlFor={`tp-${task}`}>
+                <Select id={`tp-${task}`} value={prov ?? ''} onChange={(e) => setTask(task, { provider: (e.target.value || null) as AiProvider | null })}>
+                  <option value="">{t('Mặc định ({{name}})', { name: NAMES[s.defaultProvider] })}</option>
+                  {(Object.keys(NAMES) as AiProvider[]).map((p) => <option key={p} value={p}>{NAMES[p]}</option>)}
+                </Select>
+              </Field>
+              <Field label="Model ID" htmlFor={`tm-${task}`}>
+                <Input
+                  id={`tm-${task}`}
+                  value={cur?.model ?? ''}
+                  onChange={(e) => setTask(task, { model: e.target.value.trim() ? e.target.value : null })}
+                  placeholder={s.providers[prov ?? s.defaultProvider].model}
+                  disabled={!prov}
+                  title={!prov ? t('Chọn nhà cung cấp để dùng mô hình riêng') : undefined}
+                  className="font-mono text-xs"
+                />
+              </Field>
+            </div>
+          );
+        })}
+        <p className="text-xs text-muted">{t('Model ID để trống: dùng mô hình đã cấu hình của nhà cung cấp đó. Nếu nhà cung cấp lỗi, hệ thống dùng thứ tự dự phòng.')}</p>
+      </CardBody>
+    </Card>
+  );
+}
+
+const EMBED_DEFAULTS: Record<EmbeddingProvider, { model: string; threshold: number }> = {
+  openai: { model: 'text-embedding-3-small', threshold: 0.6 },
+  gemini: { model: 'gemini-embedding-001', threshold: 0.8 },
+};
+
+/** Embedding provider for semantic clustering / duplicate detection. Unset = automatic (OpenAI, then Gemini). */
+function EmbeddingCard({ s, setS, onSave, saving }: { s: AiSettingsDoc; setS: SetS; onSave: () => void; saving: boolean }) {
+  const { t } = useTranslation();
+  const e = s.embedding;
+  const provider = e?.provider ?? null;
+  const def = EMBED_DEFAULTS[provider ?? 'openai'];
+  const threshold = e?.threshold ?? def.threshold;
+  const thresholdOk = threshold >= 0.3 && threshold <= 0.99;
+  const update = (patch: Partial<NonNullable<AiSettingsDoc['embedding']>>) => {
+    const cur = e ?? { provider: null, model: def.model, threshold: def.threshold };
+    const next = { ...cur, ...patch };
+    if (patch.provider !== undefined && patch.provider !== cur.provider) {
+      const oldDef = EMBED_DEFAULTS[cur.provider ?? 'openai'];
+      const newDef = EMBED_DEFAULTS[next.provider ?? 'openai'];
+      if (!cur.model || cur.model === oldDef.model) next.model = newDef.model;
+      if (cur.threshold === oldDef.threshold) next.threshold = newDef.threshold;
+    }
+    setS({ ...s, embedding: next });
+  };
+  return (
+    <Card>
+      <CardHeader
+        title={t('Embedding (gom nhóm theo ngữ nghĩa)')}
+        description={t('Dùng để gom nhóm câu hỏi tương tự và phát hiện câu hỏi trùng. Claude không có API embedding nên chỉ chọn được OpenAI hoặc Gemini; nếu không có, hệ thống dùng AI để gom nhóm.')}
+        actions={e ? <Button variant="ghost" size="sm" onClick={() => { const { embedding: _e, ...rest } = s; setS(rest); }}>{t('Khôi phục mặc định')}</Button> : undefined}
+      />
+      <CardBody className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label={t('Nhà cung cấp')} htmlFor="emb-p">
+            <Select id="emb-p" value={provider ?? ''} onChange={(ev) => update({ provider: (ev.target.value || null) as EmbeddingProvider | null })}>
+              <option value="">{t('Tự động (OpenAI, sau đó Gemini)')}</option>
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+            </Select>
+          </Field>
+          <Field label="Model ID" htmlFor="emb-m" hint={!provider ? t('Chế độ tự động dùng mô hình mặc định của nhà cung cấp') : undefined}>
+            <Input id="emb-m" value={provider ? (e?.model ?? '') : ''} onChange={(ev) => update({ model: ev.target.value })} onBlur={() => !e?.model.trim() && update({ model: def.model })} placeholder={def.model} disabled={!provider} className="font-mono text-xs" />
+          </Field>
+          <Field label={t('Ngưỡng tương đồng')} htmlFor="emb-t" error={thresholdOk ? undefined : t('Ngưỡng phải từ 0.3 đến 0.99')} hint={t('Mặc định 0.6 (OpenAI) / 0.8 (Gemini). Cao hơn = nhóm chặt hơn.')}>
+            <Input id="emb-t" type="number" min={0.3} max={0.99} step={0.01} value={threshold} onChange={(ev) => update({ threshold: Number(ev.target.value) })} aria-invalid={!thresholdOk} />
+          </Field>
+        </div>
+        <div className="flex justify-end"><Button onClick={onSave} loading={saving} disabled={!thresholdOk}>{t('Lưu cấu hình')}</Button></div>
+      </CardBody>
+    </Card>
   );
 }

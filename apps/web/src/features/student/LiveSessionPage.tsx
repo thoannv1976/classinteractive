@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NoActivities, StudentActivityCard } from '@/components/classroom/Activities';
 import { Composer } from '@/components/classroom/Composer';
 import { PostCard } from '@/components/classroom/PostCard';
+import { PublishedSummary } from '@/components/classroom/SessionSummary';
 import { sessionPath, sortPosts, useActivities, useFeed } from '@/components/classroom/hooks';
 import { api, errorMessage } from '@/lib/api';
 import { useLiveDoc } from '@/lib/firestore';
@@ -106,6 +107,8 @@ export function StudentSessionPage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="qa" className="space-y-4">
+            {/* Remount on status change so the listener re-subscribes when the session ends. */}
+            <PublishedSummary key={s.status} classId={classId} sessionId={sessionId} />
             <Composer
               classId={classId}
               sessionId={sessionId}

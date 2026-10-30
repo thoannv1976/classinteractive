@@ -1,5 +1,5 @@
 import { Send } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { PostDoc, PostType } from '@classinteract/shared';
@@ -12,6 +12,19 @@ import { rememberMyPost } from '@/lib/myPosts';
 import { cn, requestId } from '@/lib/utils';
 import { tk } from '@/i18n';
 import { similarQuestions } from './hooks';
+
+interface SimilarItem {
+  postId: string;
+  sessionId: string;
+  content: string;
+  voteCount: number;
+}
+interface SimilarResp {
+  method: 'embedding' | 'none';
+  items: SimilarItem[];
+}
+const SEMANTIC_MIN_CHARS = 20;
+const SEMANTIC_DEBOUNCE_MS = 1200;
 
 const ROOT_TYPES: { value: PostType; label: string; placeholder: string }[] = [
   { value: 'question', label: tk('Câu hỏi'), placeholder: tk('Bạn muốn hỏi điều gì về bài học?') },
@@ -49,7 +62,30 @@ export function Composer({
   const [anon, setAnon] = useState(false);
   const [sending, setSending] = useState(false);
   const pendingKey = useRef<string | null>(null);
-  const similar = type === 'question' && content.length > 15 ? similarQuestions(content, existing) : [];
+  // Semantic duplicates from the server (embeddings); null = unavailable → local keyword heuristic.
+  const [semantic, setSemantic] = useState<SimilarItem[] | null>(null);
+  const latestCall = useRef(0);
+  const semanticOff = useRef(false); // server said 'none' (AI or embeddings not configured): stop asking
+  const draft = content.trim();
+  const wantsSemantic = type === 'question' && draft.length >= SEMANTIC_MIN_CHARS;
+  useEffect(() => {
+    const call = ++latestCall.current;
+    if (!wantsSemantic || semanticOff.current) return;
+    const timer = setTimeout(() => {
+      api
+        .post<SimilarResp>(`/classes/${classId}/similar-questions`, { text: draft, sessionId })
+        .then((r) => {
+          if (r.method !== 'embedding') semanticOff.current = true;
+          if (call === latestCall.current) setSemantic(r.method === 'embedding' ? r.items : null);
+        })
+        .catch(() => {
+          if (call === latestCall.current) setSemantic(null);
+        });
+    }, SEMANTIC_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [wantsSemantic, draft, classId, sessionId]);
+  const similar: { postId: string; content: string; voteCount: number }[] =
+    type !== 'question' || content.length <= 15 ? [] : wantsSemantic && semantic ? semantic : similarQuestions(content, existing);
   const cfg = ROOT_TYPES.find((rt) => rt.value === type)!;
 
   const submit = async () => {
@@ -68,6 +104,7 @@ export function Composer({
       rememberMyPost(r.postId);
       clear();
       setSelected([]);
+      setSemantic(null);
       toast.success(type === 'question' ? t('Đã gửi câu hỏi') : t('Đã gửi'));
       onPosted?.();
     } catch (e) {
@@ -117,7 +154,9 @@ export function Composer({
           <p className="font-medium">{t('Có thể câu hỏi tương tự đã có:')}</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-4">
             {similar.map((p) => (
-              <li key={p.postId} className="line-clamp-1">{p.content}</li>
+              <li key={p.postId} className="line-clamp-1">
+                {p.content} <span className="whitespace-nowrap text-amber-700">· ▲{p.voteCount}</span>
+              </li>
             ))}
           </ul>
           <p className="mt-1">{t('Bạn có thể bình chọn câu hỏi đó thay vì gửi câu mới.')}</p>
