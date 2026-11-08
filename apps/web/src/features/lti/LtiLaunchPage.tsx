@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Alert, Spinner } from '@/components/ui/feedback';
 import { api, errorMessage } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { auth } from '@/lib/firebase';
 import { queryClient } from '@/lib/query';
 import { AuthLayout } from '@/features/auth/AuthLayout';
@@ -17,6 +18,14 @@ export function LtiLaunchPage() {
   const navigate = useNavigate();
   const started = useRef(false); // StrictMode runs effects twice; the ticket is single use.
   const [error, setError] = useState<string | null>(null);
+  const { status, user } = useAuth();
+  // Where to go once the app's auth state shows the new user. Navigating earlier lets the
+  // route guards see the previous (or no) user and bounce to /login → /home.
+  const [target, setTarget] = useState<{ uid: string; to: string } | null>(null);
+
+  useEffect(() => {
+    if (target && status === 'signedIn' && user?.uid === target.uid) navigate(target.to, { replace: true });
+  }, [target, status, user, navigate]);
 
   useEffect(() => {
     if (started.current) return;
@@ -33,13 +42,13 @@ export function LtiLaunchPage() {
         const r = await api.post<{ token: string; redirect: string }>('/lti/launch', { ticket: decodeURIComponent(m[1]!) });
         if (auth.currentUser) await signOut(auth); // another account may be signed in on this browser
         queryClient.clear();
-        await signInWithCustomToken(auth, r.token);
-        navigate(r.redirect, { replace: true });
+        const cred = await signInWithCustomToken(auth, r.token);
+        setTarget({ uid: cred.user.uid, to: r.redirect });
       } catch (e) {
         setError(errorMessage(e));
       }
     })();
-  }, [navigate, t]);
+  }, [t]);
 
   return (
     <AuthLayout title={t('Đăng nhập từ Moodle')} subtitle={t('Đang mở ClassInteract bằng tài khoản LMS của bạn')}>
