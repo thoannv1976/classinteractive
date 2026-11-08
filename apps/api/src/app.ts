@@ -20,6 +20,7 @@ import analyticsRoutes from './modules/analytics';
 import authRoutes from './modules/auth';
 import classRoutes from './modules/classes';
 import courseRoutes from './modules/courses';
+import ltiRoutes from './modules/lti';
 import exportRoutes from './modules/exports';
 import notificationRoutes from './modules/notifications';
 import postRoutes from './modules/posts';
@@ -72,6 +73,8 @@ export async function buildApp() {
       // Public routes
       await api.register(setupRoutes);
       await api.register(authRoutes);
+      // UniGame Hub (LTI): public launch + its own authenticated routes
+      await api.register(ltiRoutes);
       // Everything else requires a valid, active account
       await api.register(async (priv) => {
         priv.addHook('preHandler', authenticate);

@@ -26,6 +26,7 @@
     "fastify": "^5.12.7",
     "firebase-admin": "^13.10.0",
     "google-auth-library": "^10.9.1",
+    "jose": "6.2.13",
     "openai": "^6.49.0",
     "zod": "^4.1.12"
   },

@@ -136,6 +136,20 @@ for NAME in anthropic-api-key openai-api-key gemini-api-key; do
   gcloud secrets add-iam-policy-binding "$NAME" --member="serviceAccount:$SA" --role=roles/secretmanager.secretVersionAdder >/dev/null
 done
 ok "Secret cho API key AI sẵn sàng (nhập key trong ứng dụng: Quản trị → Cấu hình AI)"
+
+# UniGame Hub (LTI 1.3 qua Hub): tắt nếu không đặt LTI_ENABLED=true.
+#   LTI_ENABLED=true LTI_HUB_URL=https://… LTI_TENANT_MAP="aiedu2026=default" [LTI_SECRET_NAME=unigamehub-secret]
+# Secret LTI_SECRET_NAME chứa khóa bí mật của game trên Hub (GAME_SECRET_CLASSINTERACTIVE), tạo trước.
+LTI_ENV=""
+if [ "${LTI_ENABLED:-false}" = "true" ]; then
+  : "${LTI_HUB_URL:?Thiếu LTI_HUB_URL}" "${LTI_TENANT_MAP:?Thiếu LTI_TENANT_MAP}"
+  LTI_SECRET_NAME="${LTI_SECRET_NAME:-unigamehub-secret}"
+  secret_exists "$LTI_SECRET_NAME" || { echo "Thiếu secret $LTI_SECRET_NAME trong Secret Manager" >&2; exit 1; }
+  gcloud secrets add-iam-policy-binding "$LTI_SECRET_NAME" --member="serviceAccount:$SA" --role=roles/secretmanager.secretAccessor >/dev/null
+  SECRETS="$SECRETS,LTI_GAME_SECRET=$LTI_SECRET_NAME:latest"
+  LTI_ENV=",LTI_ENABLED=true,LTI_HUB_URL=$LTI_HUB_URL,LTI_TENANT_MAP=$LTI_TENANT_MAP"
+  ok "Đăng nhập qua UniGame Hub: bật ($LTI_HUB_URL)"
+fi
 echo "  Biến môi trường lấy từ Secret Manager: $(echo "$SECRETS" | sed -E 's/=[^,]+//g')"
 
 # -----------------------------------------------------------------------------
@@ -156,7 +170,7 @@ if [ "${SKIP_API:-0}" != "1" ]; then
     --image "$IMAGE" --region "$REGION" --service-account "$SA" \
     --allow-unauthenticated --port 8080 --cpu 1 --memory 512Mi \
     --concurrency 80 --min-instances 0 --max-instances 10 --timeout 300 \
-    --set-env-vars "GCLOUD_PROJECT=$PROJECT_ID,LOG_LEVEL=info,TASKS_QUEUE=projects/$PROJECT_ID/locations/$REGION/queues/$QUEUE,TASKS_SA_EMAIL=$SA${EXISTING_URL:+,SERVICE_URL=$EXISTING_URL}" \
+    --set-env-vars "GCLOUD_PROJECT=$PROJECT_ID,LOG_LEVEL=info,TASKS_QUEUE=projects/$PROJECT_ID/locations/$REGION/queues/$QUEUE,TASKS_SA_EMAIL=$SA${EXISTING_URL:+,SERVICE_URL=$EXISTING_URL}${LTI_ENV}" \
     --set-secrets "$SECRETS"
   SERVICE_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
   # Cloud Tasks calls the service directly (not through Hosting) for long AI jobs.

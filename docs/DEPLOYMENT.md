@@ -98,6 +98,22 @@ Model ID mặc định: `claude-opus-5-5` (Anthropic), `gpt-5-mini` (OpenAI), `g
 | `LOG_LEVEL` | env | `info` (mặc định) |
 | `TENANT_ID` | env (tuỳ chọn) | Mặc định `default` – thiết kế sẵn cho nhiều đơn vị |
 | `CORS_ORIGINS` | env (tuỳ chọn) | Chỉ cần nếu web chạy khác tên miền |
+| `LTI_ENABLED` | env (tuỳ chọn) | `true` để bật đăng nhập từ Moodle qua UniGame Hub (mặc định tắt) |
+| `LTI_HUB_URL` | env | Địa chỉ UniGame Hub, ví dụ `https://unigame-hub-….run.app` |
+| `LTI_TENANT_MAP` | env | Trường trên Hub → tenant ở đây, ví dụ `aiedu2026=default` |
+| `LTI_GAME_SECRET` | Secret `unigamehub-secret` | Khóa bí mật của game trên Hub (`GAME_SECRET_CLASSINTERACTIVE`) |
+
+### Đăng nhập từ Moodle qua UniGame Hub
+
+```bash
+LTI_ENABLED=true LTI_HUB_URL=https://unigame-hub-423573033950.asia-southeast1.run.app \
+LTI_TENANT_MAP="aiedu2026=default" bash infrastructure/deploy.sh
+```
+
+- Giảng viên được ghép theo **email**; sinh viên theo **mã SV = username Moodle** (rồi email trong danh sách lớp). Tài khoản chưa có được tạo tự động (đăng nhập qua Moodle, không có mật khẩu).
+- Lần đầu giảng viên mở hoạt động: trang **Gắn khóa học Moodle với lớp ClassInteract** (chọn lớp đang dạy hoặc tạo lớp mới). Sinh viên mở hoạt động sau đó được ghi danh vào lớp và vào thẳng buổi học đang mở.
+- Khi giảng viên **Xác nhận điểm**, điểm tham gia (0–100) được gửi về Sổ điểm Moodle qua Hub (Hub tìm sinh viên trong khóa Moodle bằng NRPS). Trang Điểm hiển thị kết quả và nút gửi lại.
+- Dữ liệu: `ltiContexts` (khóa Moodle ↔ lớp), `ltiUsers` (người dùng Moodle ↔ tài khoản), `ltiTickets` (chống dùng lại vé) – chỉ server đọc/ghi.
 
 Cấu hình web (`VITE_FIREBASE_*`) là thông tin **công khai** của Firebase Web App, không phải bí mật.
 
