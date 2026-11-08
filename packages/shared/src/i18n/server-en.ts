@@ -250,4 +250,18 @@ export const SERVER_EN: Record<string, string> = {
   'Điều chỉnh của giảng viên': 'Lecturer adjustment',
   'Điểm tham khảo hiện tại': 'Current reference score',
   'Điểm đã xác nhận (lần gần nhất)': 'Confirmed score (latest)',
+  // UniGame Hub / LMS launch
+  'LMS không gửi email của giảng viên. Hãy bật chia sẻ email trong cấu hình công cụ LTI.': 'The LMS did not send the lecturer e-mail address. Enable e-mail sharing in the LTI tool settings.',
+  'Email này đang thuộc một tài khoản sinh viên trong ClassInteract.': 'This e-mail belongs to a student account in ClassInteract.',
+  'Không xác định được mã sinh viên (username Moodle). Hãy báo giảng viên.': 'Could not determine the student ID (Moodle username). Please tell your lecturer.',
+  'Tài khoản vừa được tạo, hãy mở lại hoạt động.': 'The account has just been created. Please open the activity again.',
+  'Đăng nhập qua LMS chưa được bật.': 'Sign-in through the LMS is not enabled.',
+  'Thiếu vé đăng nhập': 'Missing sign-in ticket',
+  'Phiên mở từ LMS đã hết hạn hoặc không hợp lệ. Hãy mở lại hoạt động trong Moodle.': 'The LMS launch has expired or is invalid. Please open the activity in Moodle again.',
+  'Trường trên LMS chưa được kết nối với ClassInteract.': 'This LMS school is not connected to ClassInteract.',
+  'LMS không gửi thông tin khóa học': 'The LMS did not send the course information',
+  'Giảng viên chưa gắn lớp ClassInteract cho khóa học này. Vui lòng quay lại sau.': 'Your lecturer has not linked a ClassInteract class to this course yet. Please try again later.',
+  'Lớp ClassInteract đã gắn không còn tồn tại. Hãy báo giảng viên.': 'The linked ClassInteract class no longer exists. Please tell your lecturer.',
+  'Tài khoản này không phải tài khoản sinh viên trong ClassInteract.': 'This account is not a student account in ClassInteract.',
+  'Hãy mở hoạt động này từ khóa học trên LMS trước.': 'Open this activity from the LMS course first.',
 };

@@ -9,6 +9,8 @@ import { useAuth } from '@/lib/auth';
 import { ForceChangePassword } from '@/features/auth/ForceChangePassword';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
+import { LtiLaunchPage } from '@/features/lti/LtiLaunchPage';
+import { LtiLinkPage } from '@/features/lti/LtiLinkPage';
 import { NotificationsPage } from '@/features/common/NotificationsPage';
 import { ProfilePage } from '@/features/common/ProfilePage';
 import { ClassDetailPage } from '@/features/student/ClassDetailPage';
@@ -160,6 +162,8 @@ export function App() {
             </PublicOnly>
           }
         />
+        {/* LMS (Moodle) launch through UniGame Hub – works whether or not someone is signed in */}
+        <Route path="/lti-launch" element={<LtiLaunchPage />} />
         <Route
           path="/register"
           element={
@@ -198,6 +202,14 @@ export function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
           {/* Lecturer */}
+          <Route
+            path="lti/link/:key"
+            element={
+              <RequireRole roles={STAFF}>
+                <LtiLinkPage />
+              </RequireRole>
+            }
+          />
           <Route
             path="teach"
             element={

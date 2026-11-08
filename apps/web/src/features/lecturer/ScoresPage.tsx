@@ -44,6 +44,18 @@ interface SnapshotMeta {
   confirmedByName: string;
   confirmedAt: Time;
   rows?: unknown[];
+  lmsSync?: LmsSyncResult[];
+}
+
+interface LmsSyncResult {
+  contextKey: string;
+  contextTitle: string;
+  ok: boolean;
+  matched: number;
+  queued: number;
+  duplicate: number;
+  unmatched: string[];
+  error?: string;
 }
 
 interface ScoresData {
@@ -119,9 +131,10 @@ export function ScoresPage() {
   const confirmScores = async () => {
     setConfirming(true);
     try {
-      await api.post(`${base}/scores/confirm`);
+      const r = await api.post<{ snapshotId: string; lmsSync?: LmsSyncResult[] }>(`${base}/scores/confirm`);
       await invalidate(`${base}/scores`);
       toast.success(t('Đã xác nhận điểm'));
+      notifyLmsSync(r.lmsSync ?? [], t);
       setConfirmOpen(false);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -168,6 +181,8 @@ export function ScoresPage() {
           </p>
         </div>
       </div>
+
+      <LmsSyncCard base={base} canManage={access.canManage} last={data.lastSnapshot} />
 
       <Card>
         <CardHeader
@@ -451,5 +466,82 @@ function AdjustDialog({ base, row, onClose }: { base: string; row: ScoreRow; onC
         </Field>
       </div>
     </Dialog>
+  );
+}
+
+type TFn = (k: string, o?: Record<string, unknown>) => string;
+
+function notifyLmsSync(results: LmsSyncResult[], t: TFn) {
+  if (!results.length) return;
+  const failed = results.filter((r) => !r.ok);
+  const sent = results.reduce((n, r) => n + r.matched, 0);
+  const unmatched = [...new Set(results.flatMap((r) => r.unmatched))];
+  if (failed.length) toast.error(t('Chưa gửi được điểm về Moodle: {{e}}', { e: failed[0]!.error ?? '' }));
+  else toast.success(t('Đã gửi {{n}} điểm về Sổ điểm Moodle', { n: sent }));
+  if (unmatched.length) toast.warning(t('{{n}} sinh viên không có trong khóa học Moodle: {{ids}}', { n: unmatched.length, ids: unmatched.slice(0, 10).join(', ') }));
+}
+
+/** LMS (Moodle) courses linked to this class through UniGame Hub, last grade push and a resend button. */
+function LmsSyncCard({ base, canManage, last }: { base: string; canManage: boolean; last: SnapshotMeta | null }) {
+  const { t } = useTranslation();
+  const { data } = useApi<{ enabled: boolean; items: Array<{ key: string; title: string; label: string; activities: number }> }>(canManage ? `${base}/lms-links` : null);
+  const [sending, setSending] = useState(false);
+  if (!data?.enabled || !data.items.length) return null;
+  const results = last?.lmsSync ?? [];
+  const resend = async () => {
+    if (!last) return;
+    setSending(true);
+    try {
+      const r = await api.post<{ lmsSync: LmsSyncResult[] }>(`${base}/scores/snapshots/${last.snapshotId}/push-lms`);
+      await invalidate(`${base}/scores`);
+      notifyLmsSync(r.lmsSync, t);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <Card>
+      <CardHeader
+        title={t('Đồng bộ điểm với Moodle')}
+        description={t('Điểm đã xác nhận được gửi về Sổ điểm của các khóa học Moodle sau (thang 100, Moodle tự quy đổi).')}
+        actions={
+          canManage && last && (
+            <Button variant="outline" loading={sending} onClick={() => void resend()}>
+              {t('Gửi lại lần xác nhận gần nhất')}
+            </Button>
+          )
+        }
+      />
+      <CardBody className="space-y-2 text-sm">
+        {data.items.map((c) => {
+          const r = results.find((x) => x.contextKey === c.key);
+          return (
+            <div key={c.key} className="rounded-lg border p-3">
+              <div className="font-medium">
+                {c.title} {c.label && <span className="text-muted">({c.label})</span>}
+              </div>
+              {!last ? (
+                <p className="text-muted">{t('Chưa xác nhận điểm lần nào.')}</p>
+              ) : !r ? (
+                <p className="text-muted">{t('Lần xác nhận gần nhất chưa được gửi.')}</p>
+              ) : r.ok ? (
+                <p>
+                  <Badge tone="success">{t('Đã gửi')}</Badge> {t('{{n}} sinh viên', { n: r.matched })}
+                  {r.unmatched.length > 0 && (
+                    <span className="text-muted"> · {t('Không có trong khóa học Moodle: {{ids}}', { ids: r.unmatched.join(', ') })}</span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-danger">
+                  {t('Lỗi')}: {r.error}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </CardBody>
+    </Card>
   );
 }

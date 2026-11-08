@@ -9,6 +9,7 @@ import { forbidden, notFound, parse } from '../lib/errors';
 import { C } from '../lib/paths';
 import { computeClassScores, loadScoreConfig, scoreConfigRef } from '../lib/scores';
 import { serialize } from '../lib/time';
+import { pushSnapshotToLms } from './lti';
 
 const snapshots = (classId: string) => C.class(classId).collection('scoreSnapshots');
 
@@ -79,7 +80,12 @@ export default async function scoreRoutes(app: FastifyInstance) {
       confirmedAt: now(),
     });
     await audit(req, 'score.confirm', 'class', classId, { snapshotId: ref.id, version: live.config.version });
-    return { snapshotId: ref.id };
+    // Confirmed scores are the only ones sent to the LMS gradebook (UniGame Hub). Failures never block the confirmation.
+    const lmsSync = await pushSnapshotToLms(classId, ref.id).catch((e: Error) => {
+      req.log.warn({ err: e.message, classId }, 'LMS grade push failed');
+      return [];
+    });
+    return { snapshotId: ref.id, lmsSync };
   });
 
   app.get('/classes/:classId/scores/snapshots', async (req) => {
