@@ -136,6 +136,30 @@ describe('teaching insights', () => {
     const r = await lec.get(`/classes/${classId}/insights`);
     expect(r.body.insights.insights[0].evidence.length).toBeGreaterThan(0);
   });
+
+  it("can be read in the other language after an AI translation of the same run", async () => {
+    const run = await startJob({ type: 'teaching_insights', lang: 'vi' });
+    expect(run.status).toBe('completed');
+    const before = await lec.get(`/classes/${classId}/insights?lang=en`);
+    expect(before.body.languages).toEqual(['vi']);
+    expect(before.body.insights.lang).toBe('vi'); // falls back to the original
+    const tr = await startJob({ type: 'teaching_insights', lang: 'en', translate: true });
+    expect(tr.status).toBe('completed');
+    const en = await lec.get(`/classes/${classId}/insights?lang=en`);
+    expect(en.body.languages).toEqual(['vi', 'en']);
+    expect(en.body.insights.lang).toBe('en');
+    expect(en.body.insights.translatedFrom).toBe('vi');
+    expect(en.body.insights.insights[0].title).toBe('Some questions are still unanswered');
+    // category and refs are kept from the original
+    const vi = await lec.get(`/classes/${classId}/insights?lang=vi`);
+    expect(vi.body.insights.lang).toBe('vi');
+    expect(en.body.insights.insights[0].refs).toEqual(vi.body.insights.insights[0].refs);
+    // a new analysis makes the old translation stale
+    await startJob({ type: 'teaching_insights', lang: 'vi' });
+    const after = await lec.get(`/classes/${classId}/insights?lang=en`);
+    expect(after.body.languages).toEqual(['vi']);
+    expect(after.body.insights.lang).toBe('vi');
+  });
 });
 
 describe('engagement score', () => {

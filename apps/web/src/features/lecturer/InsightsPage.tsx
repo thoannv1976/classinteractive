@@ -1,14 +1,15 @@
-import { BookOpen, Check, Copy, Lightbulb, MessageCircleQuestion, MessagesSquare, Printer, ShieldCheck, TriangleAlert, Users } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { BookOpen, Check, Copy, Languages, Lightbulb, MessageCircleQuestion, MessagesSquare, Printer, ShieldCheck, TriangleAlert, Users } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import type { InsightItem, PostDoc, TeachingInsightsDoc } from '@classinteract/shared';
+import type { InsightItem, Lang, PostDoc, TeachingInsightsDoc } from '@classinteract/shared';
 import { AiJobButton } from '@/components/classroom/AiJobs';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Alert, EmptyState, ErrorState, Spinner } from '@/components/ui/feedback';
-import { tk } from '@/i18n';
+import { currentLang, tk } from '@/i18n';
 import { useApi } from '@/lib/query';
 import { cn, formatDateTime } from '@/lib/utils';
 import { useClassCtx } from './ClassLayout';
@@ -29,6 +30,31 @@ export const INSIGHTS_NOTICE = tk('AI chỉ đưa ra nhận định dựa trên 
 
 export interface InsightsResponse {
   insights: TeachingInsightsDoc | null;
+  /** Languages available for the latest analysis run (original first). */
+  languages?: Lang[];
+}
+
+const LANG_NAMES: Record<Lang, string> = { vi: tk('Tiếng Việt'), en: tk('Tiếng Anh') };
+
+/** "Tiếng Việt | English" switch for AI-written content. */
+function LangSwitch({ value, onChange }: { value: Lang; onChange: (l: Lang) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div role="group" aria-label={t('Ngôn ngữ nội dung AI')} className="inline-flex items-center rounded-lg border border-border p-0.5 text-sm">
+      <Languages className="mx-1.5 h-4 w-4 text-muted" aria-hidden />
+      {(['vi', 'en'] as const).map((l) => (
+        <button
+          key={l}
+          type="button"
+          aria-pressed={value === l}
+          onClick={() => onChange(l)}
+          className={cn('rounded-md px-2.5 py-1 font-medium', value === l ? 'bg-primary text-white' : 'text-muted hover:text-fg')}
+        >
+          {l.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /** Question posts of the class keyed by post id (used to turn insight refs into links). */
@@ -150,10 +176,13 @@ export function FollowUpList({ questions, print }: { questions: string[]; print?
 }
 
 export function InsightsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { cls } = useClassCtx();
-  const { data, isLoading, error, refetch } = useApi<InsightsResponse>(`/classes/${cls.classId}/insights`);
+  const [viewLang, setViewLang] = useState<Lang>(currentLang());
+  useEffect(() => setViewLang(currentLang()), [i18n.language]);
+  const { data, isLoading, error, refetch } = useApi<InsightsResponse>(`/classes/${cls.classId}/insights?lang=${viewLang}`);
   const doc = data?.insights ?? null;
+  const missingLang = !!doc && doc.lang !== viewLang;
   const hasRefs = !!doc?.insights.some((i) => i.refs.length);
   const posts = useQuestionMap(cls.classId, hasRefs);
   const aiOff = !cls.settings.aiEnabled;
@@ -166,8 +195,9 @@ export function InsightsPage() {
           description={t('AI phân tích câu hỏi, chủ đề, kết quả hoạt động và mức độ tham gia của cả lớp để gợi ý điều chỉnh giảng dạy.')}
           actions={
             <>
+              <LangSwitch value={viewLang} onChange={setViewLang} />
               {doc && (
-                <Button variant="outline" size="sm" onClick={() => window.open(`/print/${cls.classId}/insights`, '_blank')}>
+                <Button variant="outline" size="sm" onClick={() => window.open(`/print/${cls.classId}/insights?lang=${doc.lang}`, '_blank')}>
                   <Printer className="h-4 w-4" /> {t('In / Lưu PDF')}
                 </Button>
               )}
@@ -175,6 +205,8 @@ export function InsightsPage() {
                 classId={cls.classId}
                 type="teaching_insights"
                 sessionId={null}
+                lang={viewLang}
+                translate={false}
                 label={doc ? t('Phân tích lại') : t('Phân tích bằng AI')}
                 onDone={() => void refetch()}
                 disabled={aiOff}
@@ -191,9 +223,26 @@ export function InsightsPage() {
           </div>
           {aiOff && <Alert tone="warning">{t('Lớp này chưa bật chức năng AI. Bật trong Cài đặt lớp để sử dụng.')}</Alert>}
           {doc && (
-            <p className="text-xs text-muted">
+            <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
               {t('Phân tích lúc {{time}}', { time: formatDateTime(doc.generatedAt) })} · {t('{{n}} nhận định', { n: doc.insights.length })}
+              {doc.translatedFrom && <Badge tone="neutral">{t('Bản dịch của AI từ {{lang}}', { lang: t(LANG_NAMES[doc.translatedFrom]) })}</Badge>}
             </p>
+          )}
+          {missingLang && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+              <p>{t('Bản phân tích này được viết bằng {{lang}}. Có thể để AI dịch sang {{target}} mà không phải phân tích lại.', { lang: t(LANG_NAMES[doc.lang]), target: t(LANG_NAMES[viewLang]) })}</p>
+              <AiJobButton
+                classId={cls.classId}
+                type="teaching_insights"
+                sessionId={null}
+                lang={viewLang}
+                translate
+                label={t('Dịch sang {{lang}}', { lang: t(LANG_NAMES[viewLang]) })}
+                onDone={() => void refetch()}
+                disabled={aiOff}
+                size="sm"
+              />
+            </div>
           )}
         </CardBody>
       </Card>

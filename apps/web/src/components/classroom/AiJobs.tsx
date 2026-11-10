@@ -3,7 +3,7 @@ import { CheckCircle2, Loader2, Sparkles, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { AiJobDoc, AiJobType } from '@classinteract/shared';
+import type { AiJobDoc, AiJobType, Lang } from '@classinteract/shared';
 import { AI_JOB_STATUS_LABELS, AI_JOB_TYPE_LABELS } from '@classinteract/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button, type ButtonProps } from '@/components/ui/button';
@@ -27,10 +27,18 @@ export function useClassJobs(classId: string) {
   return useLiveQuery<AiJobDoc>(q);
 }
 
-/** Most recent job of a type (optionally for a session / activity). */
-export function useLatestJob(classId: string, type: AiJobType, sessionId?: string | null, activityId?: string) {
+/** Most recent job of a type (optionally for a session / activity, or only translations / only non-translations). */
+export function useLatestJob(classId: string, type: AiJobType, sessionId?: string | null, activityId?: string, translate?: boolean) {
   const { data } = useClassJobs(classId);
-  return data.find((j) => j.type === type && (sessionId === undefined || (j.sessionId ?? null) === (sessionId ?? null)) && (!activityId || j.params?.activityId === activityId)) ?? null;
+  return (
+    data.find(
+      (j) =>
+        j.type === type &&
+        (sessionId === undefined || (j.sessionId ?? null) === (sessionId ?? null)) &&
+        (!activityId || j.params?.activityId === activityId) &&
+        (translate === undefined || !!j.params?.translate === translate),
+    ) ?? null
+  );
 }
 
 export function JobStatusBadge({ job }: { job: AiJobDoc }) {
@@ -56,6 +64,8 @@ export function AiJobButton({
   sessionId,
   activityId,
   force,
+  lang,
+  translate,
   label,
   onDone,
   size,
@@ -68,6 +78,10 @@ export function AiJobButton({
   sessionId?: string | null;
   activityId?: string;
   force?: boolean;
+  /** Output language (default: the UI language). */
+  lang?: Lang;
+  /** teaching_insights: translate the latest analysis instead of running a new one. */
+  translate?: boolean;
   label?: string;
   onDone?: (job: AiJobDoc) => void;
   size?: ButtonProps['size'];
@@ -76,7 +90,7 @@ export function AiJobButton({
   disabled?: boolean;
 }) {
   const { t } = useTranslation();
-  const job = useLatestJob(classId, type, sessionId, activityId);
+  const job = useLatestJob(classId, type, sessionId, activityId, translate);
   const [starting, setStarting] = useState(false);
   const [mine, setMine] = useState<string | null>(null);
   const reported = useRef<string | null>(null);
@@ -95,7 +109,7 @@ export function AiJobButton({
   const start = async () => {
     setStarting(true);
     try {
-      const j = await api.post<AiJobDoc>(`/classes/${classId}/ai-jobs`, { type, sessionId: sessionId ?? undefined, activityId, force });
+      const j = await api.post<AiJobDoc>(`/classes/${classId}/ai-jobs`, { type, sessionId: sessionId ?? undefined, activityId, force, lang, translate });
       setMine(j.jobId);
       reported.current = null;
     } catch (e) {

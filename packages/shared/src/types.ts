@@ -551,6 +551,10 @@ export interface TeachingInsightsDoc {
   insights: InsightItem[];
   followUpQuestions: string[];
   lang: 'vi' | 'en';
+  /** Analysis run this text belongs to (a translation keeps the id of the run it was translated from). */
+  sourceJobId?: string | null;
+  /** Set when this version is an AI translation of the run's original language. */
+  translatedFrom?: 'vi' | 'en' | null;
   aiRunId: string | null;
   jobId: string | null;
   generatedAt: Time;

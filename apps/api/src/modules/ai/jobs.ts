@@ -12,6 +12,7 @@ import type {
   SessionStatsDoc,
   SessionSummarySections,
   SubmissionDoc,
+  TeachingInsightsDoc,
   UserDoc,
 } from '@classinteract/shared';
 import { EXIT_TICKET_QUESTIONS, isOpenQuestionStatus } from '@classinteract/shared';
@@ -541,7 +542,56 @@ const INSIGHTS_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Translates the latest teaching insights into the job language (same run, same refs). */
+async function translateInsights(job: AiJobDoc, progress: (p: string) => Promise<void>) {
+  const { cls, user } = await jobContext(job);
+  const col = C.class(cls.classId).collection('insights');
+  const src = (await col.doc('latest').get()).data() as TeachingInsightsDoc | undefined;
+  if (!src) throw new Error('No insights to translate');
+  if (src.lang === job.lang) return { insights: src.insights.length, translated: false };
+  await progress('generate');
+  const r = await executeStructured({
+    cls,
+    user,
+    taskType: 'insights',
+    jobId: job.jobId,
+    sourceRefs: [],
+    system: `Translate the teaching insights below ${job.lang === 'en' ? 'from Vietnamese into English' : 'from English into Vietnamese'} for a university lecturer.
+Keep the same number of insights in the same order, keep every category and refs value unchanged, and translate title, detail, every evidence line and every followUpQuestions item.
+Text quoted from student posts (inside quotes or parentheses) stays exactly as written. Keep numbers and course terms accurate.
+${DATA_GUARD}
+${languageLine(job.lang)}`,
+    prompt: `<insights>\n${fence(JSON.stringify({ insights: src.insights, followUpQuestions: src.followUpQuestions }), 60000)}\n</insights>`,
+    schemaName: 'teaching_insights_translation',
+    schema: INSIGHTS_SCHEMA,
+    maxOutputTokens: 6000,
+  });
+  const out = r.json as { insights?: InsightItem[]; followUpQuestions?: string[] };
+  const tr = out.insights ?? [];
+  const doc = {
+    ...src,
+    // Category and refs always come from the original; only the text is taken from the translation.
+    insights: src.insights.map((it, i) => ({
+      ...it,
+      title: String(tr[i]?.title ?? it.title).slice(0, 300),
+      detail: String(tr[i]?.detail ?? it.detail).slice(0, 2000),
+      evidence: it.evidence.map((e, k) => String(tr[i]?.evidence?.[k] ?? e).slice(0, 300)),
+    })),
+    followUpQuestions: src.followUpQuestions.map((q, i) => String(out.followUpQuestions?.[i] ?? q).slice(0, 500)),
+    lang: job.lang,
+    sourceJobId: src.sourceJobId ?? src.jobId ?? null,
+    translatedFrom: src.lang,
+    aiRunId: r.runId,
+    jobId: job.jobId,
+    generatedAt: now(),
+    generatedBy: user.uid,
+  };
+  await col.doc(`lang_${job.lang}`).set(doc);
+  return { insights: doc.insights.length, translated: true, runId: r.runId };
+}
+
 registerJobHandler('teaching_insights', async (job, progress) => {
+  if (job.params?.translate) return translateInsights(job, progress);
   const { cls, user } = await jobContext(job);
   await progress('collect');
   const [posts, sessions, students, clustersSnap] = await Promise.all([
@@ -624,6 +674,8 @@ ${languageLine(job.lang)}`,
     })),
     followUpQuestions: (out.followUpQuestions ?? []).slice(0, 8).map((q) => String(q).slice(0, 500)),
     lang: job.lang,
+    sourceJobId: job.jobId,
+    translatedFrom: null,
     aiRunId: r.runId,
     jobId: job.jobId,
     generatedAt: now(),

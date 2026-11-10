@@ -310,6 +310,10 @@ export const startJobSchema = z.object({
   activityId: z.string().max(64).optional(),
   scope: z.enum(['session', 'class']).optional(),
   force: z.boolean().optional(),
+  /** Output language; defaults to the request language. */
+  lang: z.enum(['vi', 'en']).optional(),
+  /** teaching_insights only: translate the latest analysis instead of running a new one. */
+  translate: z.boolean().optional(),
 });
 
 export const updateClusterSchema = z.object({

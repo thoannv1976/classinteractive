@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import type { AiJobDoc, ClusterDoc, PostAuthorDoc, PostDoc, SessionSummaryDoc } from '@classinteract/shared';
+import type { AiJobDoc, ClusterDoc, PostAuthorDoc, PostDoc, SessionSummaryDoc, TeachingInsightsDoc } from '@classinteract/shared';
+import { isLang } from '@classinteract/shared';
 import {
   mergeClustersSchema,
   moveClusterItemSchema,
@@ -50,13 +51,20 @@ export default async function insightRoutes(app: FastifyInstance) {
     if (input.type === 'summarize_activity' && !input.activityId) throw badRequest('Thiếu hoạt động');
     if (input.sessionId && !(await C.session(classId, input.sessionId).get()).exists) throw notFound('Không tìm thấy buổi học');
     const sessionId = input.type === 'teaching_insights' ? null : (input.sessionId ?? null);
+    const translate = input.type === 'teaching_insights' && !!input.translate;
+    if (translate && !(await C.class(classId).collection('insights').doc('latest').get()).exists) throw badRequest('Chưa có bản phân tích để dịch');
+    const lang = input.lang ?? requestLang(req);
     const job = await createJob({
       cls: a.cls,
       user: me,
       type: input.type,
       sessionId,
-      params: { ...(input.activityId ? { activityId: input.activityId } : {}), ...(input.force ? { force: true } : {}) },
-      lang: requestLang(req),
+      params: {
+        ...(input.activityId ? { activityId: input.activityId } : {}),
+        ...(input.force ? { force: true } : {}),
+        ...(translate ? { translate: true, lang } : {}),
+      },
+      lang,
     });
     await audit(req, 'ai.job', 'class', classId, { type: input.type, sessionId });
     return serialize(job);
@@ -184,11 +192,24 @@ export default async function insightRoutes(app: FastifyInstance) {
   });
 
   // ---------- teaching insights & activity summaries
+  /**
+   * Latest teaching insights. `?lang=vi|en` asks for that language: the latest run's own text when it
+   * was written in that language, else its translation (if one was made for this run), else the original.
+   * `languages` lists the languages available for the latest run.
+   */
   app.get('/classes/:classId/insights', async (req) => {
     const { classId } = req.params as { classId: string };
     await requireClassModerator(currentUser(req), classId);
-    const snap = await C.class(classId).collection('insights').doc('latest').get();
-    return serialize({ insights: snap.data() ?? null });
+    const { lang } = req.query as { lang?: string };
+    const col = C.class(classId).collection('insights');
+    const latest = (await col.doc('latest').get()).data() as TeachingInsightsDoc | undefined;
+    if (!latest) return { insights: null, languages: [] };
+    const runId = latest.sourceJobId ?? latest.jobId;
+    const other = latest.lang === 'vi' ? 'en' : 'vi';
+    const translated = (await col.doc(`lang_${other}`).get()).data() as TeachingInsightsDoc | undefined;
+    const hasOther = !!translated && !!runId && translated.sourceJobId === runId;
+    const insights = isLang(lang) && lang === other && hasOther ? translated : latest;
+    return serialize({ insights, languages: hasOther ? [latest.lang, other] : [latest.lang] });
   });
 
   app.get('/classes/:classId/sessions/:sessionId/activities/:activityId/ai-summary', async (req) => {

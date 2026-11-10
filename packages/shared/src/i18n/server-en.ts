@@ -229,6 +229,7 @@ export const SERVER_EN: Record<string, string> = {
   'Tổng trọng số phải bằng 100%': 'Weights must add up to 100%',
   'Bản tóm tắt buổi học đã sẵn sàng': 'The session summary is ready',
   'Chưa có bản tóm tắt': 'There is no summary yet',
+  'Chưa có bản phân tích để dịch': 'There is no analysis to translate yet',
   'Chọn ít nhất hai nhóm': 'Select at least two groups',
   'Chọn ít nhất một chủ đề khác để gộp': 'Select at least one other topic to merge',
   'Chủ đề này đã tồn tại. Hãy dùng chức năng gộp chủ đề.': 'This topic already exists. Use “merge topics” instead.',
