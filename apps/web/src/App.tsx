@@ -52,6 +52,7 @@ const ClassSettingsPage = lazy(() =>
 const PresenterPage = lazy(() =>
   import('@/features/lecturer/PresenterPage').then((m) => ({ default: m.PresenterPage })),
 );
+const AnswersReviewPage = lazy(() => import('@/features/lecturer/AnswersReviewPage').then((m) => ({ default: m.AnswersReviewPage })));
 const QuestionsQueuePage = lazy(() =>
   import('@/features/lecturer/QuestionsQueuePage').then((m) => ({ default: m.QuestionsQueuePage })),
 );
@@ -235,6 +236,7 @@ export function App() {
             <Route index element={<ClassOverviewPage />} />
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="questions" element={<QuestionsQueuePage />} />
+            <Route path="answers" element={<AnswersReviewPage />} />
             <Route path="students" element={<StudentsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="analytics/students/:uid" element={<StudentDetailPage />} />

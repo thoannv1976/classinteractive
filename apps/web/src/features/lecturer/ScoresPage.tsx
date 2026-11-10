@@ -17,6 +17,7 @@ import { tk } from '@/i18n';
 import { api, errorMessage } from '@/lib/api';
 import { invalidate, useApi } from '@/lib/query';
 import { cn, formatDateTime } from '@/lib/utils';
+import { AtRiskCard } from './AtRiskCard';
 import { useClassCtx } from './ClassLayout';
 
 interface ComponentResult {
@@ -189,6 +190,8 @@ export function ScoresPage() {
       </div>
 
       <LmsSyncCard base={base} canManage={access.canManage} last={data.lastSnapshot} />
+
+      <AtRiskCard classId={cls.classId} classCode={cls.classCode} canManage={access.canManage} />
 
       <Card>
         <CardHeader

@@ -108,6 +108,8 @@ export const NOTIFICATION_TYPES = [
   'enrollment_request',
   'ai_answer',
   'summary_ready',
+  'score_confirmed',
+  'participation_reminder',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

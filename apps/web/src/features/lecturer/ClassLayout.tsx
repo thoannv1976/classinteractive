@@ -21,6 +21,7 @@ const TABS = [
   { to: '', label: tk('Tổng quan'), end: true },
   { to: 'sessions', label: tk('Buổi học') },
   { to: 'questions', label: tk('Câu hỏi chờ xử lý') },
+  { to: 'answers', label: tk('Xác nhận câu trả lời') },
   { to: 'students', label: tk('Sinh viên') },
   { to: 'analytics', label: tk('Mức độ tham gia') },
   { to: 'topics', label: tk('Chủ đề') },

@@ -1,4 +1,4 @@
-import { Check, Info, Lightbulb, X } from 'lucide-react';
+import { CalendarDays, Check, Info, Lightbulb, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ScoreComponent, ScoreConfig, Time } from '@classinteract/shared';
 import { SCORE_COMPONENTS, SCORE_COMPONENT_LABELS, scoreTips } from '@classinteract/shared';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Table, Td, Th } from '@/components/ui/misc';
 import { tk } from '@/i18n';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime, toDate } from '@/lib/utils';
 
 export interface ScoreDetail {
   config: ScoreConfig;
@@ -42,6 +42,9 @@ export function ScoreBreakdown({ data, audience }: { data: ScoreDetail; audience
   const { t } = useTranslation();
   const { row, config, sessions } = data;
   const tips = scoreTips(config, row);
+  // The last 7 days, so progress is visible week by week.
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const week = sessions.filter((s) => (toDate(s.startedAt)?.getTime() ?? 0) >= weekAgo);
   return (
     <Card className="mb-6">
       <CardHeader
@@ -66,6 +69,17 @@ export function ScoreBreakdown({ data, audience }: { data: ScoreDetail; audience
           </p>
           {audience === 'lecturer' && row.adjustmentNote && <p className="pb-1 text-sm text-muted">· {row.adjustmentNote}</p>}
         </div>
+
+        {week.length > 0 && (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-surface-2 px-3 py-2 text-sm">
+            <span className="flex items-center gap-1.5 font-medium">
+              <CalendarDays className="h-4 w-4 text-primary" /> {t('7 ngày qua')}
+            </span>
+            <span>{t('Có mặt {{n}}/{{total}} buổi', { n: week.filter((s) => s.joined).length, total: week.length })}</span>
+            <span>· {t('{{n}} câu hỏi', { n: week.reduce((a, s) => a + s.questions, 0) })}</span>
+            <span>· {t('{{n}} trả lời/thảo luận', { n: week.reduce((a, s) => a + s.contributions, 0) })}</span>
+          </p>
+        )}
 
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {SCORE_COMPONENTS.map((k) => {

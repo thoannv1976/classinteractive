@@ -200,6 +200,35 @@ describe('engagement score', () => {
     expect(r.body.exitTickets.done).toBe(r.body.exitTickets.opened);
     expect(r.body.activities).toEqual(expect.objectContaining({ opened: expect.any(Number), done: expect.any(Number), open: expect.any(Number) }));
   });
+
+  it("lists students needing attention and lets the lecturer remind them", async () => {
+    const r = await lec.get(`/classes/${classId}/at-risk`);
+    expect(r.status).toBe(200);
+    expect(r.body.sessionsHeld).toBeGreaterThan(0);
+    for (const i of r.body.items) expect(i.reasons.length).toBeGreaterThan(0);
+    // SV1 joined and contributed, so it is not flagged
+    expect(r.body.items.map((i: any) => i.studentId)).not.toContain('SV1');
+    expect((await s1.get(`/classes/${classId}/at-risk`)).status).toBe(403);
+    const sv3 = (await lec.get(`/classes/${classId}/scores`)).body.rows.find((x: any) => x.studentId === 'SV3');
+    const sent = await lec.post(`/classes/${classId}/reminders`, { uids: [sv3.uid, 'not-a-member'], message: '' });
+    expect(sent.status).toBe(200);
+    expect(sent.body.sent).toBe(1);
+    expect((await s1.post(`/classes/${classId}/reminders`, { uids: [sv3.uid] })).status).toBe(403);
+  });
+
+  it("lists students' answers awaiting confirmation until the lecturer confirms them", async () => {
+    const ans = await s2.post(`/classes/${classId}/sessions/${sessionId}/posts/${q.c}/replies`, { type: 'answer', content: 'Càng nhiều người dùng thì nền tảng càng có giá trị.', clientRequestId: rid() });
+    expect(ans.status).toBe(200);
+    const pending = await lec.get(`/classes/${classId}/answers/pending`);
+    expect(pending.status).toBe(200);
+    const mine = pending.body.items.find((p: any) => p.postId === ans.body.postId);
+    expect(mine.question.postId).toBe(q.c);
+    expect(pending.body.items.every((p: any) => p.type === 'answer' && !p.isAccepted && p.authorRole === 'student')).toBe(true);
+    expect((await s1.get(`/classes/${classId}/answers/pending`)).status).toBe(403);
+    await lec.patch(`/classes/${classId}/sessions/${sessionId}/posts/${ans.body.postId}/moderation`, { isAccepted: true });
+    const after = await lec.get(`/classes/${classId}/answers/pending?sessionId=${sessionId}`);
+    expect(after.body.items.map((p: any) => p.postId)).not.toContain(ans.body.postId);
+  });
 });
 
 describe('automatic AI after a session', () => {

@@ -60,6 +60,47 @@ const en: Record<string, string> = {
   'Điểm tham gia được tính từ 5 việc': 'Your participation score comes from 5 things',
   'Mỗi buổi tính tối đa {{q}} câu hỏi, {{a}} lần trả lời/thảo luận và {{h}} câu trả lời được giảng viên xác nhận. Buổi đã qua không làm bù được, nên hãy tham gia đều ở mọi buổi.':
     'Each session counts at most {{q}} questions, {{a}} answers/discussion posts and {{h}} answers confirmed by the lecturer. Past sessions cannot be made up, so take part in every session.',
+
+  // Batch 2: weekly recap, next session
+  '7 ngày qua': 'Last 7 days',
+  'Có mặt {{n}}/{{total}} buổi': 'Present at {{n}}/{{total}} sessions',
+  '{{n}} câu hỏi': '{{n}} questions',
+  '{{n}} trả lời/thảo luận': '{{n}} answers/discussion posts',
+  'Buổi tới:': 'Next session:',
+
+  // Batch 2: answers awaiting confirmation
+  'Xác nhận câu trả lời': 'Confirm answers',
+  'Đã xác nhận {{n}} câu trả lời': '{{n}} answers confirmed',
+  'Mỗi câu trả lời được xác nhận giúp tác giả có điểm phần "Câu trả lời được giảng viên xác nhận" và đánh dấu câu hỏi là đã được trả lời. Câu trả lời được các bạn bấm "Hữu ích" nhiều được xếp lên đầu.':
+    'Each confirmed answer earns its author points in "Answers confirmed by the lecturer" and marks the question as answered. Answers that classmates marked "Helpful" most come first.',
+  'Tất cả các buổi': 'All sessions',
+  'Chọn tất cả ({{n}})': 'Select all ({{n}})',
+  'Xác nhận đã chọn ({{n}})': 'Confirm selected ({{n}})',
+  'Không còn câu trả lời nào chờ xác nhận': 'No answers waiting for confirmation',
+  'Chọn câu trả lời của {{name}}': 'Select the answer by {{name}}',
+  '{{n}} bạn thấy hữu ích': '{{n}} found it helpful',
+
+  // Batch 2: early warning and reminders
+  'Chưa vào buổi nào': 'Never joined a session',
+  'Vắng các buổi gần đây': 'Missed recent sessions',
+  'Có vào nhưng chưa đóng góp': 'Joined but no contribution yet',
+  'Lý do': 'Reason',
+  'Số buổi đã vào': 'Sessions joined',
+  'Buổi gần nhất có mặt': 'Last session attended',
+  'Sinh viên cần chú ý': 'Students needing attention',
+  'Chưa vào buổi nào, vắng {{n}} buổi gần nhất, hoặc có vào nhưng chưa có đóng góp nào. Không gồm tài khoản đã đánh dấu "Không tính điểm".':
+    'Never joined a session, missed the last {{n}} sessions, or joined without any contribution. Accounts marked "Not scored" are left out.',
+  'Tải CSV': 'Download CSV',
+  'Gửi nhắc nhở ({{n}})': 'Send reminder ({{n}})',
+  'Tất cả sinh viên đều đang tham gia. Tuyệt vời!': 'Every student is taking part. Great!',
+  'Chọn {{name}}': 'Select {{name}}',
+  'Xem tất cả {{n}} sinh viên': 'Show all {{n}} students',
+  'Đã gửi nhắc nhở cho {{n}} sinh viên': 'Reminder sent to {{n}} students',
+  'Gửi nhắc nhở': 'Send reminder',
+  '{{n}} sinh viên sẽ nhận thông báo trong ClassInteract (biểu tượng chuông).': '{{n}} students will get an in-app notification in ClassInteract (bell icon).',
+  'Để trống để dùng lời nhắn mặc định: nhắc vào buổi, đặt câu hỏi, trả lời và làm hoạt động.':
+    'Leave empty to use the default message: join the session, ask, answer and do the activities.',
+  'Lời nhắn (không bắt buộc)': 'Message (optional)',
 };
 
 export default en;

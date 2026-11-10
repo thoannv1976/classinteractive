@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, PlayCircle, Rocket } from 'lucide-react';
+import { CalendarClock, ChevronDown, ChevronUp, PlayCircle, Rocket } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardBody } from '@/components/ui/card';
 import { useApi } from '@/lib/query';
 import { toDate } from '@/lib/utils';
-import { sessionLabel } from '../common/SessionStatus';
+import { sessionLabel, sessionTime } from '../common/SessionStatus';
 
 const storageKey = (classId: string) => `ci.startGuide.collapsed.${classId}`;
 const readCollapsed = (classId: string) => {
@@ -34,6 +34,12 @@ export function StartGuide({ classId, sessions }: { classId: string; sessions: S
   const live = sessions
     .filter((s) => s.status === 'open' || s.status === 'paused')
     .sort((a, b) => (a.status === b.status ? 0 : a.status === 'open' ? -1 : 1) || (toDate(b.startedAt)?.getTime() ?? 0) - (toDate(a.startedAt)?.getTime() ?? 0));
+
+  // Next planned session (not started yet), so students know when to come back.
+  const today = new Date().toISOString().slice(0, 10);
+  const next = sessions
+    .filter((s) => s.status === 'draft' && s.date >= today)
+    .sort((a, b) => `${a.date}T${a.plannedStart}`.localeCompare(`${b.date}T${b.plannedStart}`))[0];
 
   const toggle = () => {
     const next = !collapsed;
@@ -71,6 +77,12 @@ export function StartGuide({ classId, sessions }: { classId: string; sessions: S
           </div>
         ) : (
           <p className="text-sm text-muted">{t('Hiện chưa có buổi học nào đang mở. Khi giảng viên mở buổi, nút vào buổi sẽ hiện ở đây; bạn vẫn có thể xem lại hỏi đáp của các buổi trước ở danh sách bên dưới.')}</p>
+        )}
+        {next && (
+          <p className="flex flex-wrap items-center gap-1.5 text-sm">
+            <CalendarClock className="h-4 w-4 text-primary" />
+            <span className="font-medium">{t('Buổi tới:')}</span> {sessionLabel(next)} <span className="text-muted">· {sessionTime(next)}</span>
+          </p>
         )}
 
         {!collapsed && (

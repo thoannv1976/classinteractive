@@ -422,6 +422,40 @@ export default async function postRoutes(app: FastifyInstance) {
       .sort((x, y) => y.voteCount - x.voteCount || (toMillis(x.createdAt) ?? 0) - (toMillis(y.createdAt) ?? 0));
     return { items: serialize(items) };
   });
+
+  /**
+   * Students' answers not yet confirmed by the lecturer, with the question they answer – the
+   * "answers confirmed by the lecturer" score component only moves when these get confirmed.
+   * Answers classmates found helpful come first.
+   */
+  app.get('/classes/:classId/answers/pending', async (req) => {
+    const { classId } = req.params as { classId: string };
+    await requireClassModerator(currentUser(req), classId);
+    const q = parse(z.object({ sessionId: z.string().max(64).optional() }), req.query);
+    let query = db.collectionGroup('posts').where('classId', '==', classId).where('type', '==', 'answer');
+    if (q.sessionId) query = query.where('sessionId', '==', q.sessionId);
+    const snap = await query.limit(1000).get();
+    const answers = snap.docs
+      .map((d) => d.data() as PostDoc)
+      .filter((p) => p.moderationStatus === 'visible' && !p.isAccepted && p.authorRole === 'student' && p.parentPostId);
+    const parentRefs = [...new Map(answers.map((p) => [`${p.sessionId}/${p.parentPostId}`, C.posts(classId, p.sessionId).doc(p.parentPostId!)])).values()];
+    const parents = new Map(
+      (parentRefs.length ? await db.getAll(...parentRefs) : []).filter((d) => d.exists).map((d) => [`${(d.data() as PostDoc).sessionId}/${d.id}`, d.data() as PostDoc]),
+    );
+    const score = (p: PostDoc) => (p.reactionCounts?.helpful ?? 0) * 2 + (p.reactionCounts?.agree ?? 0) + (p.reactionCounts?.understood ?? 0);
+    const items = answers
+      .map((p) => {
+        const parent = parents.get(`${p.sessionId}/${p.parentPostId}`);
+        return {
+          ...p,
+          question: parent && parent.moderationStatus === 'visible' ? { postId: parent.postId, content: parent.content, authorName: parent.authorName, status: parent.status } : null,
+          helpfulScore: score(p),
+        };
+      })
+      .filter((p) => p.question)
+      .sort((x, y) => y.helpfulScore - x.helpfulScore || (toMillis(y.createdAt) ?? 0) - (toMillis(x.createdAt) ?? 0));
+    return { items: serialize(items) };
+  });
 }
 
 /** Hide / unhide a post and keep every counter consistent. */

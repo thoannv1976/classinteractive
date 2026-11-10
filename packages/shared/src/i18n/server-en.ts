@@ -264,4 +264,9 @@ export const SERVER_EN: Record<string, string> = {
   'Lớp ClassInteract đã gắn không còn tồn tại. Hãy báo giảng viên.': 'The linked ClassInteract class no longer exists. Please tell your lecturer.',
   'Tài khoản này không phải tài khoản sinh viên trong ClassInteract.': 'This account is not a student account in ClassInteract.',
   'Hãy mở hoạt động này từ khóa học trên LMS trước.': 'Open this activity from the LMS course first.',
+  'Giảng viên đã xác nhận điểm tham gia': 'Your lecturer has confirmed the participation scores',
+  'Xem điểm của bạn và cách tăng điểm trong "Mức độ tham gia của tôi".': 'See your score and how to raise it in "My participation".',
+  'Nhắc nhở tham gia lớp {{classCode}}': 'Reminder to take part in class {{classCode}}',
+  'Giảng viên nhắc bạn tham gia các buổi học trên ClassInteract: vào buổi, đặt câu hỏi, trả lời và làm hoạt động để có điểm tham gia.':
+    'Your lecturer reminds you to take part in the ClassInteract sessions: join the session, ask, answer and do the activities to earn participation points.',
 };
