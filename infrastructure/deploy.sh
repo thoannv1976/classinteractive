@@ -137,9 +137,33 @@ for NAME in anthropic-api-key openai-api-key gemini-api-key; do
 done
 ok "Secret cho API key AI sẵn sàng (nhập key trong ứng dụng: Quản trị → Cấu hình AI)"
 
-# UniGame Hub (LTI 1.3 qua Hub): tắt nếu không đặt LTI_ENABLED=true.
-#   LTI_ENABLED=true LTI_HUB_URL=https://… LTI_TENANT_MAP="aiedu2026=default" [LTI_SECRET_NAME=unigamehub-secret]
+# UniGame Hub (LTI 1.3 qua Hub).
+#   Bật lần đầu: LTI_ENABLED=true LTI_HUB_URL=https://… LTI_TENANT_MAP="aiedu2026=default" [LTI_SECRET_NAME=unigamehub-secret]
+#   Các lần deploy sau KHÔNG cần đặt lại: nếu không đặt LTI_ENABLED, script giữ nguyên cấu hình đang chạy
+#   trên Cloud Run (trước đây --set-env-vars xóa mất và Moodle không vào được). Muốn tắt hẳn: LTI_ENABLED=false.
 # Secret LTI_SECRET_NAME chứa khóa bí mật của game trên Hub (GAME_SECRET_CLASSINTERACTIVE), tạo trước.
+
+# Prints the live service's plain env vars as "env:NAME=VALUE" and its secret env vars as
+# "secret:NAME=SECRET_NAME" (nothing if the service does not exist yet).
+live_service_env() {
+  gcloud run services describe "$SERVICE" --region "$REGION" --format=json 2>/dev/null |
+    node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>{try{const c=JSON.parse(s).spec.template.spec.containers[0];for(const e of c.env||[]){if(e.value!==undefined)console.log(`env:${e.name}=${e.value}`);else if(e.valueFrom&&e.valueFrom.secretKeyRef)console.log(`secret:${e.name}=${e.valueFrom.secretKeyRef.name}`)}}catch{}})'
+}
+if [ -z "${LTI_ENABLED:-}" ]; then
+  LIVE_ENV="$(live_service_env || true)"
+  if printf '%s
+' "$LIVE_ENV" | grep -qx 'env:LTI_ENABLED=true'; then
+    LTI_ENABLED=true
+    LTI_HUB_URL="${LTI_HUB_URL:-$(printf '%s
+' "$LIVE_ENV" | sed -n 's/^env:LTI_HUB_URL=//p')}"
+    LTI_TENANT_MAP="${LTI_TENANT_MAP:-$(printf '%s
+' "$LIVE_ENV" | sed -n 's/^env:LTI_TENANT_MAP=//p')}"
+    LTI_SECRET_NAME="${LTI_SECRET_NAME:-$(printf '%s
+' "$LIVE_ENV" | sed -n 's/^secret:LTI_GAME_SECRET=//p')}"
+    ok "Giữ cấu hình UniGame Hub đang chạy trên Cloud Run"
+  fi
+fi
+
 LTI_ENV=""
 if [ "${LTI_ENABLED:-false}" = "true" ]; then
   : "${LTI_HUB_URL:?Thiếu LTI_HUB_URL}" "${LTI_TENANT_MAP:?Thiếu LTI_TENANT_MAP}"
@@ -149,6 +173,8 @@ if [ "${LTI_ENABLED:-false}" = "true" ]; then
   SECRETS="$SECRETS,LTI_GAME_SECRET=$LTI_SECRET_NAME:latest"
   LTI_ENV=",LTI_ENABLED=true,LTI_HUB_URL=$LTI_HUB_URL,LTI_TENANT_MAP=$LTI_TENANT_MAP"
   ok "Đăng nhập qua UniGame Hub: bật ($LTI_HUB_URL)"
+else
+  warn "Đăng nhập qua UniGame Hub (Moodle): TẮT. Đặt LTI_ENABLED=true … nếu lớp dùng link từ Moodle."
 fi
 echo "  Biến môi trường lấy từ Secret Manager: $(echo "$SECRETS" | sed -E 's/=[^,]+//g')"
 

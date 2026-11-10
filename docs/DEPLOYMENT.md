@@ -76,6 +76,10 @@ cd ~/classinteractive && git pull && bash infrastructure/deploy.sh
 
 Chỉ deploy một phần: `SKIP_WEB=1 bash infrastructure/deploy.sh` (chỉ API) hoặc `SKIP_API=1 …` (chỉ web/rules).
 
+Đăng nhập từ Moodle qua UniGame Hub (LTI): chỉ cần đặt `LTI_ENABLED=true LTI_HUB_URL=… LTI_TENANT_MAP=…` ở **lần bật đầu tiên**.
+Các lần cập nhật sau, script tự giữ cấu hình đang chạy trên Cloud Run. Muốn tắt hẳn: `LTI_ENABLED=false bash infrastructure/deploy.sh`.
+Kiểm tra sau deploy: `POST /api/v1/lti/launch` với `{"ticket":"fake"}` phải trả 401 `LTI_TICKET_INVALID`.
+
 ## 4. Thêm hoặc đổi API key AI sau này
 
 ```bash
