@@ -424,6 +424,46 @@ export default async function postRoutes(app: FastifyInstance) {
   });
 
   /**
+   * Open questions a student can still answer (their session accepts replies), most wanted
+   * first – "questions waiting for you" on the class page. The student's own questions are left out.
+   */
+  app.get('/classes/:classId/questions/waiting', async (req) => {
+    const { classId } = req.params as { classId: string };
+    const me = currentUser(req);
+    await loadClassAccess(me, classId);
+    const [qs, sessions] = await Promise.all([
+      db.collectionGroup('posts').where('classId', '==', classId).where('type', '==', 'question').where('status', 'in', [...OPEN_QUESTION_STATUSES]).limit(500).get(),
+      C.sessions(classId).get(),
+    ]);
+    const nowMs = Date.now();
+    const accepting = new Map(
+      sessions.docs
+        .map((d) => d.data() as SessionDoc)
+        .filter((s) => s.status === 'open' || (s.status === 'closed' && (toMillis(s.lateRepliesUntil) ?? 0) > nowMs))
+        .map((s) => [s.sessionId, s]),
+    );
+    const items = qs.docs
+      .map((d) => d.data() as PostDoc)
+      .filter((p) => p.moderationStatus === 'visible' && accepting.has(p.sessionId) && p.authorId !== me.uid)
+      .sort((x, y) => y.voteCount - x.voteCount || (toMillis(x.createdAt) ?? 0) - (toMillis(y.createdAt) ?? 0))
+      .slice(0, 20)
+      .map((p) => {
+        const s = accepting.get(p.sessionId)!;
+        return {
+          postId: p.postId,
+          sessionId: p.sessionId,
+          sessionNumber: s.sessionNumber,
+          sessionTitle: s.title,
+          content: p.content,
+          authorName: p.authorName,
+          voteCount: p.voteCount,
+          createdAt: p.createdAt,
+        };
+      });
+    return { items: serialize(items) };
+  });
+
+  /**
    * Students' answers not yet confirmed by the lecturer, with the question they answer – the
    * "answers confirmed by the lecturer" score component only moves when these get confirmed.
    * Answers classmates found helpful come first.

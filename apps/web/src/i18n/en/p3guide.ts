@@ -101,6 +101,39 @@ const en: Record<string, string> = {
   'Để trống để dùng lời nhắn mặc định: nhắc vào buổi, đặt câu hỏi, trả lời và làm hoạt động.':
     'Leave empty to use the default message: join the session, ask, answer and do the activities.',
   'Lời nhắn (không bắt buộc)': 'Message (optional)',
+
+  // Batch 3: badges, streak, class goals, waiting questions, summaries
+  'Bước đầu tiên': 'First step',
+  'Vào buổi học đầu tiên': 'Join your first session',
+  'Người hay hỏi': 'Curious mind',
+  'Đặt đủ số câu hỏi được tính trong {{n}} buổi': 'Ask the full number of counted questions in {{n}} sessions',
+  'Người giải đáp': 'Helper',
+  'Trả lời, thảo luận đủ mức được tính trong {{n}} buổi': 'Reach the counted number of answers/discussion posts in {{n}} sessions',
+  'Được giảng viên công nhận': 'Recognised by the lecturer',
+  'Có câu trả lời được giảng viên xác nhận': 'Have an answer confirmed by the lecturer',
+  'Không bỏ hoạt động nào': 'Never missed an activity',
+  'Làm đủ mọi hoạt động đã mở (từ 3 hoạt động trở lên)': 'Complete every activity opened (3 or more)',
+  'Tổng kết đều đặn': 'Steady reflector',
+  'Nộp đủ mọi phiếu cuối buổi (từ 2 phiếu trở lên)': 'Submit every exit ticket (2 or more)',
+  'Chuyên cần': 'Always there',
+  'Có mặt ở mọi buổi đã diễn ra (từ 3 buổi trở lên)': 'Attend every session held (3 or more)',
+  'Huy hiệu của bạn': 'Your badges',
+  'Mỗi huy hiệu ứng với một việc được tính vào điểm tham gia. Huy hiệu chỉ hiện với bạn, không có bảng xếp hạng.':
+    'Each badge matches something that counts towards your participation score. Badges are visible only to you; there is no ranking.',
+  '{{n}}/{{total}} huy hiệu': '{{n}}/{{total}} badges',
+  'Chuỗi có mặt hiện tại: {{n}} buổi liên tiếp': 'Current attendance streak: {{n}} sessions in a row',
+  'Chưa có chuỗi có mặt. Vào buổi tới để bắt đầu chuỗi!': 'No attendance streak yet. Join the next session to start one!',
+  'dài nhất {{n}} buổi': 'longest {{n}} sessions',
+  'Câu hỏi của cả lớp': 'Questions from the whole class',
+  'Trả lời và thảo luận của cả lớp': 'Answers and discussion from the whole class',
+  'Mục tiêu của cả lớp': 'Class goals',
+  'Cả lớp cùng góp để chạm mốc tiếp theo.': 'Everyone contributes to reach the next milestone together.',
+  'Chuỗi của bạn: {{n}} buổi': 'Your streak: {{n}} sessions',
+  'Còn {{n}} nữa để chạm mốc {{target}}': '{{n}} more to reach {{target}}',
+  'Có tóm tắt': 'Summary available',
+  'Câu hỏi đang chờ bạn trả lời': 'Questions waiting for your answer',
+  'Trả lời câu hỏi của bạn khác là cách ôn bài tốt và được tính vào phần "Trả lời/thảo luận" của điểm tham gia.':
+    'Answering classmates’ questions is good revision and counts towards the "Answers/discussion" part of your participation score.',
 };
 
 export default en;

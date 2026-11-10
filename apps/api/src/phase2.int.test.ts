@@ -229,6 +229,30 @@ describe('engagement score', () => {
     const after = await lec.get(`/classes/${classId}/answers/pending?sessionId=${sessionId}`);
     expect(after.body.items.map((p: any) => p.postId)).not.toContain(ans.body.postId);
   });
+
+  it("gives a student badges, a streak and the class goals, without any score", async () => {
+    const r = await s1.get(`/classes/${classId}/achievements/me`);
+    expect(r.status).toBe(200);
+    expect(r.body.badges).toHaveLength(7);
+    expect(r.body.badges.find((b: any) => b.id === 'first_step').earned).toBe(true);
+    expect(r.body.streak.current).toBeGreaterThan(0);
+    expect(r.body.classGoals.questions.count).toBeGreaterThanOrEqual(3);
+    expect(r.body.classGoals.questions.target).toBeGreaterThan(r.body.classGoals.questions.count);
+    expect(r.body.score).toBeUndefined();
+  });
+
+  it("lists open questions a student can still answer, without their own", async () => {
+    const r = await s1.get(`/classes/${classId}/questions/waiting`);
+    expect(r.status).toBe(200);
+    expect(r.body.items.map((p: any) => p.postId)).not.toContain(q.a);
+    for (const p of r.body.items) expect(p).toEqual(expect.objectContaining({ sessionId, sessionNumber: expect.any(Number), content: expect.any(String) }));
+    expect(r.body.items[0]?.authorId).toBeUndefined();
+  });
+
+  it("flags sessions with a published summary in the session list", async () => {
+    const r = await s1.get(`/classes/${classId}/sessions`);
+    expect(r.body.items.find((s: any) => s.sessionId === sessionId).hasSummary).toBe(true);
+  });
 });
 
 describe('automatic AI after a session', () => {
