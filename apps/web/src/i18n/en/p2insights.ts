@@ -18,6 +18,13 @@ const en: Record<string, string> = {
   'AI phân tích câu hỏi, chủ đề, kết quả hoạt động và mức độ tham gia của cả lớp để gợi ý điều chỉnh giảng dạy.':
     'AI analyses the questions, topics, activity results and participation of the whole class to suggest teaching adjustments.',
   'Phân tích lại': 'Analyse again',
+  'Ngôn ngữ nội dung AI': 'Language of the AI content',
+  'Bản dịch của AI từ {{lang}}': 'AI translation from {{lang}}',
+  'Bản phân tích này được viết bằng {{lang}}. Có thể để AI dịch sang {{target}} mà không phải phân tích lại.':
+    'This analysis was written in {{lang}}. AI can translate it into {{target}} without running the analysis again.',
+  'Dịch sang {{lang}}': 'Translate into {{lang}}',
+  'Tiếng Việt': 'Vietnamese',
+  'Tiếng Anh': 'English',
   'Phân tích bằng AI': 'Analyse with AI',
   'Lớp này chưa bật chức năng AI. Bật trong Cài đặt lớp để sử dụng.': 'AI is not enabled for this class. Turn it on in the class settings to use it.',
   'Phân tích lúc {{time}}': 'Analysed at {{time}}',

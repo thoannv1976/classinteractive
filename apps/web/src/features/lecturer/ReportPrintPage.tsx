@@ -640,8 +640,9 @@ function UnansweredReport({ classId }: { classId: string }) {
 }
 
 function InsightsReport({ classId }: { classId: string }) {
-  const { t } = useTranslation();
-  const q = useApi<InsightsResponse>(`/classes/${classId}/insights`);
+  const { t, i18n } = useTranslation();
+  const [params] = useSearchParams();
+  const q = useApi<InsightsResponse>(`/classes/${classId}/insights?lang=${params.get('lang') ?? i18n.language}`);
   const doc = q.data?.insights ?? null;
   const posts = useQuestionMap(classId, !!doc?.insights.some((i) => i.refs.length));
   if (!q.data) return <Loading state={q} />;
