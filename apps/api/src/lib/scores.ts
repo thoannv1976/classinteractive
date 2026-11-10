@@ -108,3 +108,51 @@ export async function computeStudentScoreDetail(cls: ClassDoc, uid: string) {
     sessions,
   };
 }
+
+export type AtRiskReason = 'never_joined' | 'no_contribution' | 'absent_recent';
+
+/**
+ * Students who need a nudge: never opened a session, joined but never contributed, or missed the
+ * last `recent` sessions held. Excluded (test) accounts are left out. Biggest problem first.
+ */
+export async function computeAtRisk(cls: ClassDoc, recent = 2) {
+  const { config, heldSessions, held, students, perStudent, adjustments } = await loadScoreInputs(cls);
+  const last = heldSessions.slice(-recent);
+  const order: Record<AtRiskReason, number> = { never_joined: 0, absent_recent: 1, no_contribution: 2 };
+  const items = students
+    .filter((s) => s.member.role === 'student' && !adjustments.get(s.member.uid)?.excluded)
+    .flatMap(({ member, metrics }) => {
+      const per = perStudent.get(member.uid) ?? {};
+      const joined = heldSessions.filter((h) => per[h.sessionId]?.joined);
+      const contributed =
+        Object.values(per).some((x) => x.questions + x.answers + x.comments + x.reflections > 0) || (metrics?.activitiesCompleted ?? 0) > 0;
+      const reasons: AtRiskReason[] = [];
+      if (!joined.length) reasons.push('never_joined');
+      else {
+        if (last.length >= recent && last.every((h) => !per[h.sessionId]?.joined)) reasons.push('absent_recent');
+        if (!contributed) reasons.push('no_contribution');
+      }
+      if (!reasons.length) return [];
+      const adj = adjustments.get(member.uid);
+      const r = computeScore(config, held, {
+        perSession: per,
+        activitiesCompleted: metrics?.activitiesCompleted ?? 0,
+        exitTickets: metrics?.exitTickets ?? 0,
+        acceptedAnswers: metrics?.acceptedAnswers ?? 0,
+        adjustment: adj?.delta ?? 0,
+      });
+      const lastJoined = joined[joined.length - 1] ?? null;
+      return [{
+        uid: member.uid,
+        studentId: member.studentId,
+        displayName: member.displayName,
+        reasons,
+        sessionsJoined: joined.length,
+        lastJoinedSession: lastJoined ? lastJoined.sessionNumber : null,
+        score: r.score,
+      }];
+    })
+    .sort((a, b) => Math.min(...a.reasons.map((x) => order[x])) - Math.min(...b.reasons.map((x) => order[x])) || (a.score ?? -1) - (b.score ?? -1));
+  return { sessionsHeld: held.length, recent, items };
+}
+

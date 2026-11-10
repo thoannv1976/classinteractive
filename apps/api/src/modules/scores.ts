@@ -7,9 +7,11 @@ import { audit } from '../lib/audit';
 import { currentUser } from '../lib/auth';
 import { forbidden, notFound, parse } from '../lib/errors';
 import { C } from '../lib/paths';
-import { computeClassScores, computeStudentScoreDetail, loadScoreConfig, scoreConfigRef } from '../lib/scores';
+import { computeAtRisk, computeClassScores, computeStudentScoreDetail, loadScoreConfig, scoreConfigRef } from '../lib/scores';
 import { serialize } from '../lib/time';
 import { pushSnapshotToLms } from './lti';
+import { notify } from './notifications';
+import { z } from 'zod';
 
 const snapshots = (classId: string) => C.class(classId).collection('scoreSnapshots');
 
@@ -90,12 +92,52 @@ export default async function scoreRoutes(app: FastifyInstance) {
       confirmedAt: now(),
     });
     await audit(req, 'score.confirm', 'class', classId, { snapshotId: ref.id, version: live.config.version });
+    // Students who can see their score are told it was confirmed (in-app, best effort).
+    if (a.cls.settings.showScoreToStudents) {
+      await notify(
+        live.rows.filter((r) => !r.excluded).map((r) => r.uid),
+        {
+          type: 'score_confirmed',
+          title: 'Giảng viên đã xác nhận điểm tham gia',
+          body: 'Xem điểm của bạn và cách tăng điểm trong "Mức độ tham gia của tôi".',
+          bodyTranslatable: true,
+          link: `/participation/${classId}`,
+        },
+      );
+    }
     // Confirmed scores are the only ones sent to the LMS gradebook (UniGame Hub). Failures never block the confirmation.
     const lmsSync = await pushSnapshotToLms(classId, ref.id).catch((e: Error) => {
       req.log.warn({ err: e.message, classId }, 'LMS grade push failed');
       return [];
     });
     return { snapshotId: ref.id, lmsSync };
+  });
+
+  /** Students who need a nudge (never joined, no contribution, missed the last sessions). */
+  app.get('/classes/:classId/at-risk', async (req) => {
+    const { classId } = req.params as { classId: string };
+    const a = await requireClassModerator(currentUser(req), classId);
+    return serialize(await computeAtRisk(a.cls));
+  });
+
+  /** In-app reminder from the lecturer to chosen students of the class. */
+  app.post('/classes/:classId/reminders', async (req) => {
+    const { classId } = req.params as { classId: string };
+    const me = currentUser(req);
+    const a = await requireClassManager(me, classId);
+    const input = parse(z.object({ uids: z.array(z.string().min(1).max(128)).min(1).max(500), message: z.string().trim().max(1000).default('') }), req.body);
+    const members = await db.getAll(...input.uids.map((uid) => C.members(classId).doc(uid)));
+    const uids = members.filter((m) => m.exists && m.data()!.status === 'active').map((m) => m.id);
+    await notify(uids, {
+      type: 'participation_reminder',
+      title: 'Nhắc nhở tham gia lớp {{classCode}}',
+      titleParams: { classCode: a.cls.classCode },
+      body: input.message || 'Giảng viên nhắc bạn tham gia các buổi học trên ClassInteract: vào buổi, đặt câu hỏi, trả lời và làm hoạt động để có điểm tham gia.',
+      bodyTranslatable: !input.message,
+      link: `/classes/${classId}`,
+    });
+    await audit(req, 'reminder.send', 'class', classId, { count: uids.length });
+    return { sent: uids.length };
   });
 
   app.get('/classes/:classId/scores/snapshots', async (req) => {
