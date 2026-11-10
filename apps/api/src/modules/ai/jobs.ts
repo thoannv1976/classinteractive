@@ -21,6 +21,7 @@ import { db, now } from '../../firebase';
 import { aggregateTopics, loadClassPosts, loadSessionsWithStats, loadStudents, interactionsOf } from '../../lib/classData';
 import { AppError, notFound } from '../../lib/errors';
 import { registerJobHandler } from '../../lib/jobs';
+import { answerSuggestionsRef, loadAnswerSuggestions, loadPendingAnswers } from '../../lib/pendingAnswers';
 import { C } from '../../lib/paths';
 import { notify } from '../notifications';
 import { classTopicNames, ensureCatalogTopic } from '../topics';
@@ -684,6 +685,79 @@ ${languageLine(job.lang)}`,
   await C.class(cls.classId).collection('insights').doc('latest').set(doc);
   await C.class(cls.classId).collection('insights').doc(`h_${Date.now()}`).set(doc);
   return { insights: doc.insights.length, runId: r.runId };
+});
+
+// ---------------------------------------------------------------- 6. answer suggestions
+const ANSWER_REVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          verdict: { type: 'string', enum: ['good', 'partial', 'off_topic'] },
+          reason: { type: 'string' },
+        },
+        required: ['id', 'verdict', 'reason'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['items'],
+  additionalProperties: false,
+};
+
+/** Answers reviewed per job, and per AI call. */
+const ANSWER_REVIEW_MAX = 200;
+const ANSWER_REVIEW_CHUNK = 40;
+
+/**
+ * Rates students' answers awaiting confirmation so the lecturer can confirm the good ones in one go.
+ * Only answers without a suggestion yet are sent (force = review again). Never confirms anything itself.
+ */
+registerJobHandler('suggest_answers', async (job, progress) => {
+  const { cls, user } = await jobContext(job);
+  await progress('collect');
+  const [pending, existing] = await Promise.all([loadPendingAnswers(cls.classId, job.sessionId ?? undefined), loadAnswerSuggestions(cls.classId)]);
+  const todo = pending.filter((p) => job.params?.force || !existing[p.postId]).slice(0, ANSWER_REVIEW_MAX);
+  if (!todo.length) return { reviewed: 0, good: 0 };
+  await progress('generate');
+  const items: Record<string, unknown> = {};
+  let good = 0;
+  for (let i = 0; i < todo.length; i += ANSWER_REVIEW_CHUNK) {
+    const chunk = todo.slice(i, i + ANSWER_REVIEW_CHUNK);
+    const ids = new Set(chunk.map((p) => p.postId));
+    const r = await executeStructured({
+      cls,
+      user,
+      taskType: 'insights',
+      sessionId: job.sessionId ?? undefined,
+      jobId: job.jobId,
+      sourceRefs: chunk.map((p) => `post:${p.postId}`),
+      system: `Bạn hỗ trợ giảng viên đại học duyệt câu trả lời của sinh viên cho câu hỏi của bạn cùng lớp. Với mỗi câu trả lời (id trong ngoặc vuông), chọn verdict:
+- good: trả lời đúng trọng tâm câu hỏi, đúng kiến thức của học phần và đủ ý để giảng viên có thể xác nhận.
+- partial: có ý đúng nhưng còn thiếu, mơ hồ hoặc có điểm chưa chính xác.
+- off_topic: không trả lời câu hỏi, sai kiến thức, hoặc chỉ là bình luận/đồng ý/cảm ơn.
+reason: một câu ngắn nêu lý do, chỉ nói về nội dung câu trả lời, không nói về người viết. Khi không chắc, chọn partial. Chỉ dùng ids có trong dữ liệu.
+${DATA_GUARD}
+${languageLine(job.lang)}`,
+      prompt: `<context>\n${courseLine(cls)}\n</context>\n<answers>\n${chunk
+        .map((p) => `[${p.postId}]\nQ: ${fence(p.question.content, 500)}\nA: ${fence(p.content, 1000)}`)
+        .join('\n\n')}\n</answers>`,
+      schemaName: 'answer_review',
+      schema: ANSWER_REVIEW_SCHEMA,
+      maxOutputTokens: 4000,
+    });
+    for (const it of (r.json as { items?: Array<{ id: string; verdict: string; reason: string }> }).items ?? []) {
+      if (!ids.has(it.id) || !['good', 'partial', 'off_topic'].includes(it.verdict)) continue;
+      if (it.verdict === 'good') good += 1;
+      items[it.id] = { verdict: it.verdict, reason: String(it.reason ?? '').slice(0, 300), lang: job.lang, jobId: job.jobId, generatedAt: now() };
+    }
+  }
+  await answerSuggestionsRef(cls.classId).set({ items, updatedAt: now() }, { merge: true });
+  return { reviewed: Object.keys(items).length, good };
 });
 
 export const _internal = { greedyClusters };

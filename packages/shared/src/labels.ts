@@ -75,6 +75,7 @@ export const AI_JOB_TYPE_LABELS: Record<import('./constants').AiJobType, string>
   summarize_session: 'Tóm tắt buổi học',
   summarize_activity: 'Tổng hợp câu trả lời hoạt động',
   teaching_insights: 'Gợi ý giảng dạy',
+  suggest_answers: 'AI gợi ý câu trả lời tốt',
 };
 
 export const AI_JOB_STATUS_LABELS: Record<import('./constants').AiJobStatus, string> = {

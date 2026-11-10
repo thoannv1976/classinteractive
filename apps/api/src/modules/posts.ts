@@ -30,6 +30,7 @@ import { assertSessionAccepts, bumpClassStats, bumpSessionStats, prepareParticip
 import { badRequest, conflict, forbidden, notFound, parse } from '../lib/errors';
 import { stableId } from '../lib/ids';
 import { C } from '../lib/paths';
+import { loadAnswerSuggestions, loadPendingAnswers } from '../lib/pendingAnswers';
 import { serialize, toMillis } from '../lib/time';
 import { notify } from './notifications';
 
@@ -472,29 +473,13 @@ export default async function postRoutes(app: FastifyInstance) {
     const { classId } = req.params as { classId: string };
     await requireClassModerator(currentUser(req), classId);
     const q = parse(z.object({ sessionId: z.string().max(64).optional() }), req.query);
-    let query = db.collectionGroup('posts').where('classId', '==', classId).where('type', '==', 'answer');
-    if (q.sessionId) query = query.where('sessionId', '==', q.sessionId);
-    const snap = await query.limit(1000).get();
-    const answers = snap.docs
-      .map((d) => d.data() as PostDoc)
-      .filter((p) => p.moderationStatus === 'visible' && !p.isAccepted && p.authorRole === 'student' && p.parentPostId);
-    const parentRefs = [...new Map(answers.map((p) => [`${p.sessionId}/${p.parentPostId}`, C.posts(classId, p.sessionId).doc(p.parentPostId!)])).values()];
-    const parents = new Map(
-      (parentRefs.length ? await db.getAll(...parentRefs) : []).filter((d) => d.exists).map((d) => [`${(d.data() as PostDoc).sessionId}/${d.id}`, d.data() as PostDoc]),
-    );
-    const score = (p: PostDoc) => (p.reactionCounts?.helpful ?? 0) * 2 + (p.reactionCounts?.agree ?? 0) + (p.reactionCounts?.understood ?? 0);
-    const items = answers
-      .map((p) => {
-        const parent = parents.get(`${p.sessionId}/${p.parentPostId}`);
-        return {
-          ...p,
-          question: parent && parent.moderationStatus === 'visible' ? { postId: parent.postId, content: parent.content, authorName: parent.authorName, status: parent.status } : null,
-          helpfulScore: score(p),
-        };
-      })
-      .filter((p) => p.question)
-      .sort((x, y) => y.helpfulScore - x.helpfulScore || (toMillis(y.createdAt) ?? 0) - (toMillis(x.createdAt) ?? 0));
-    return { items: serialize(items) };
+    const [pending, suggestions] = await Promise.all([loadPendingAnswers(classId, q.sessionId), loadAnswerSuggestions(classId)]);
+    // Answers the AI rated good come first, off-topic ones last; otherwise the helpful order is kept.
+    const rank = (v?: string) => (v === 'good' ? 0 : v === 'off_topic' ? 2 : 1);
+    const items = pending
+      .map((p) => ({ ...p, aiSuggestion: suggestions[p.postId] ?? null }))
+      .sort((x, y) => rank(x.aiSuggestion?.verdict) - rank(y.aiSuggestion?.verdict));
+    return { items: serialize(items), aiReviewed: items.filter((i) => i.aiSuggestion).length };
   });
 }
 

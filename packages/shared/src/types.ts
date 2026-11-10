@@ -546,6 +546,16 @@ export interface InsightItem {
   refs: string[];
 }
 
+/** AI's view of a student's answer awaiting confirmation (a suggestion only; the lecturer confirms). */
+export type AnswerVerdict = 'good' | 'partial' | 'off_topic';
+export interface AnswerSuggestion {
+  verdict: AnswerVerdict;
+  reason: string;
+  lang: 'vi' | 'en';
+  jobId: string;
+  generatedAt: Time;
+}
+
 export interface TeachingInsightsDoc {
   classId: string;
   insights: InsightItem[];

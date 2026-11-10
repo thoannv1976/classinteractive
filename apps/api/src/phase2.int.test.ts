@@ -254,6 +254,23 @@ describe('engagement score', () => {
     expect(after.body.items.map((p: any) => p.postId)).not.toContain(ans.body.postId);
   });
 
+  it("lets AI suggest which pending answers to confirm, without confirming anything itself", async () => {
+    const ans = await s3.post(`/classes/${classId}/sessions/${sessionId}/posts/${q.a}/replies`, { type: 'answer', content: 'Shopee thu phí hoa hồng, phí quảng cáo và phí dịch vụ vận chuyển.', clientRequestId: rid() });
+    expect(ans.status).toBe(200);
+    expect((await s1.post(`/classes/${classId}/ai-jobs`, { type: 'suggest_answers', sessionId })).status).toBe(403);
+    const job = await startJob({ type: 'suggest_answers', sessionId });
+    expect(job.status).toBe('completed');
+    expect(job.result.reviewed).toBeGreaterThanOrEqual(1);
+    const pending = await lec.get(`/classes/${classId}/answers/pending?sessionId=${sessionId}`);
+    const mine = pending.body.items.find((p: any) => p.postId === ans.body.postId);
+    expect(mine.aiSuggestion.verdict).toBe('good');
+    expect(mine.isAccepted).toBe(false); // still waits for the lecturer
+    expect(pending.body.aiReviewed).toBe(pending.body.items.length);
+    // answers already reviewed are not sent again
+    const again = await startJob({ type: 'suggest_answers', sessionId });
+    expect(again.result.reviewed).toBe(0);
+  });
+
   it("gives a student badges, a streak and the class goals, without any score", async () => {
     const r = await s1.get(`/classes/${classId}/achievements/me`);
     expect(r.status).toBe(200);
