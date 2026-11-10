@@ -89,3 +89,30 @@ export function computeScore(cfg: Pick<ScoreConfig, 'weights' | 'caps' | 'basis'
   const score = raw === null ? null : round1(Math.max(0, Math.min(100, raw + adjustment)));
   return { components, raw, adjustment, score, sessionsCounted: n };
 }
+
+export interface ScoreTip {
+  component: ScoreComponent;
+  /** Points (on the 0–100 scale) the student would gain by completing this component fully. */
+  gain: number;
+  done: number;
+  possible: number;
+}
+
+/**
+ * Where a student can still raise the score, biggest gain first.
+ * Components already at 100%, without any opportunity, or weighted 0 are left out.
+ * The gain uses the same re-normalised weights as `computeScore`, so the tips add up to 100 − raw.
+ */
+export function scoreTips(cfg: Pick<ScoreConfig, 'weights'>, r: Pick<ScoreResult, 'components'>): ScoreTip[] {
+  const keys = Object.keys(r.components) as ScoreComponent[];
+  const wsum = keys.reduce((sum, k) => (r.components[k].value === null || cfg.weights[k] <= 0 ? sum : sum + cfg.weights[k]), 0);
+  if (wsum <= 0) return [];
+  return keys
+    .flatMap((k) => {
+      const c = r.components[k];
+      const w = cfg.weights[k];
+      if (c.value === null || w <= 0 || c.value >= 1) return [];
+      return [{ component: k, gain: round1((w / wsum) * (1 - c.value) * 100), done: c.done, possible: c.possible }];
+    })
+    .sort((a, b) => b.gain - a.gain);
+}

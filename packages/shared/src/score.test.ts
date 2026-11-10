@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SCORE_CONFIG, computeScore } from './score';
+import { DEFAULT_SCORE_CONFIG, computeScore, scoreTips } from './score';
 
 const sessions = [
   { sessionId: 's1', activityCount: 2, exitTicketCount: 1 },
@@ -46,5 +46,33 @@ describe('engagement score', () => {
     expect(r.sessionsCounted).toBe(1);
     expect(r.score).toBe(100);
     expect(computeScore(DEFAULT_SCORE_CONFIG, [], { perSession: {}, activitiesCompleted: 0, exitTickets: 0, acceptedAnswers: 0 }).score).toBeNull();
+  });
+});
+
+describe('score tips', () => {
+  it('lists the missing points per component, biggest first, adding up to 100 − raw', () => {
+    const r = computeScore(DEFAULT_SCORE_CONFIG, sessions, {
+      perSession: { s1: ps({ questions: 1, answers: 3 }), s2: ps({ answers: 3 }) },
+      activitiesCompleted: 1, // the regular activity, no exit ticket
+      exitTickets: 0,
+      acceptedAnswers: 0,
+    });
+    const tips = scoreTips(DEFAULT_SCORE_CONFIG, r);
+    // activities and answers are full → not listed
+    expect(tips.map((t) => t.component)).toEqual(['questions', 'helpful', 'exitTickets']);
+    expect(tips[0]!.gain).toBeGreaterThanOrEqual(tips[1]!.gain);
+    const total = tips.reduce((sum, t) => sum + t.gain, 0);
+    expect(total).toBeCloseTo(100 - r.raw!, 0);
+  });
+
+  it('skips components without any opportunity and returns nothing at full marks', () => {
+    const none = computeScore(DEFAULT_SCORE_CONFIG, [{ sessionId: 's2', activityCount: 0, exitTicketCount: 0 }], {
+      perSession: { s2: ps({ questions: 2, answers: 3 }) },
+      activitiesCompleted: 0,
+      exitTickets: 0,
+      acceptedAnswers: 2,
+    });
+    expect(none.score).toBe(100);
+    expect(scoreTips(DEFAULT_SCORE_CONFIG, none)).toEqual([]);
   });
 });

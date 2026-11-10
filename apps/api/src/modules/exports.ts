@@ -149,7 +149,7 @@ async function buildSheets(cls: ClassDoc, revealAnonymous: boolean, lang: Lang):
       { header: T('Hoàn thành hoạt động trên lớp') + ` (${scores.config.weights.activities}%)` },
       { header: T('Trả lời câu hỏi/thảo luận') + ` (${scores.config.weights.answers}%)` },
       { header: T('Đặt câu hỏi liên quan') + ` (${scores.config.weights.questions}%)` },
-      { header: T('Đóng góp phản hồi có ích') + ` (${scores.config.weights.helpful}%)` },
+      { header: T('Câu trả lời được giảng viên xác nhận') + ` (${scores.config.weights.helpful}%)` },
       { header: T('Phiếu cuối buổi') + ` (${scores.config.weights.exitTickets}%)` },
       { header: T('Điều chỉnh của giảng viên') },
       { header: T('Điểm tham khảo hiện tại') },

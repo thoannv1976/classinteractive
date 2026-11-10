@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { ClassDoc, MemberDoc, SessionDoc, UserDoc } from '@classinteract/shared';
+import type { ActivityDoc, ClassDoc, MemberDoc, SessionDoc, StudentSessionMetricsDoc, UserDoc } from '@classinteract/shared';
 import { createSessionSchema, endSessionSchema, joinByCodeSchema, updateSessionSchema } from '@classinteract/shared';
 import { Timestamp, db, inc, now } from '../firebase';
 import { assertClassWritable, loadClassAccess, requireClassManager } from '../lib/access';
@@ -14,6 +14,7 @@ import { providerOrder } from './ai/executor';
 import { C } from '../lib/paths';
 import { serialize, toMillis } from '../lib/time';
 import { notify } from './notifications';
+import { loadScoreConfig } from '../lib/scores';
 
 const JOIN_CODE_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -133,6 +134,38 @@ export default async function sessionRoutes(app: FastifyInstance) {
       joined: att.exists,
       access: { canManage: a.canManage, canModerate: a.canModerate, memberRole: a.ctx.memberRole },
     });
+  });
+
+  /**
+   * What the signed-in student has done in this session, against what the engagement score
+   * counts per session – drives the "tasks for this session" checklist.
+   */
+  app.get('/classes/:classId/sessions/:sessionId/my-progress', async (req) => {
+    const { classId, sessionId } = req.params as { classId: string; sessionId: string };
+    const me = currentUser(req);
+    await loadClassAccess(me, classId);
+    await getSessionOr404(classId, sessionId);
+    const [ssm, att, acts, config] = await Promise.all([
+      C.studentSessionMetrics(classId).doc(`${sessionId}_${me.uid}`).get(),
+      C.attendance(classId, sessionId).doc(me.uid).get(),
+      C.activities(classId, sessionId).where('status', 'in', ['open', 'closed']).get(),
+      loadScoreConfig(classId),
+    ]);
+    const opened = acts.docs.map((d) => d.data() as ActivityDoc);
+    const subs = opened.length ? await db.getAll(...opened.map((a) => C.submissions(classId, sessionId, a.activityId).doc(me.uid))) : [];
+    const count = (exit: boolean) => {
+      const list = opened.map((a, i) => ({ a, done: !!subs[i]?.exists })).filter((x) => (x.a.type === 'exit_ticket') === exit);
+      return { opened: list.length, done: list.filter((x) => x.done).length, open: list.filter((x) => x.a.status === 'open' && !x.done).length };
+    };
+    const m = ssm.data() as StudentSessionMetricsDoc | undefined;
+    return {
+      joined: att.exists || !!m?.joined,
+      questions: m?.questions ?? 0,
+      contributions: (m?.answers ?? 0) + (m?.comments ?? 0) + (m?.reflections ?? 0),
+      caps: config.caps,
+      activities: count(false),
+      exitTickets: count(true),
+    };
   });
 
   app.patch('/classes/:classId/sessions/:sessionId', async (req) => {

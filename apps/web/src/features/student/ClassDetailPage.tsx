@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/misc';
 import { useApi } from '@/lib/query';
 import { cn } from '@/lib/utils';
 import { SessionStatusBadge, sessionLabel, sessionTime } from '../common/SessionStatus';
+import { StartGuide } from './StartGuide';
 
 export function ClassDetailPage() {
   const { classId } = useParams();
@@ -37,6 +38,7 @@ export function ClassDetailPage() {
           </>
         }
       />
+      {cls.data && !cls.data.access.canModerate && <StartGuide classId={classId ?? ''} sessions={items} />}
       <Card>
         <CardHeader title={t('Các buổi học')} description={t('Chọn buổi đang diễn ra để tham gia, hoặc xem lại hỏi đáp của các buổi trước.')} />
         <CardBody className="p-0 sm:p-0">

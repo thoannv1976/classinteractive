@@ -12,7 +12,7 @@
 import type { FastifyInstance } from 'fastify';
 import { FieldValue, type Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import type { ClassDoc, StudentDirectoryDoc, UserDoc } from '@classinteract/shared';
+import type { ClassDoc, SessionDoc, StudentDirectoryDoc, UserDoc } from '@classinteract/shared';
 import { SCHEMA_VERSION, STUDENT_ID_REGEX, isAdminRole, isStaffRole, normalizeEmail, normalizeStudentId } from '@classinteract/shared';
 import { config } from '../config';
 import { auth, db, now } from '../firebase';
@@ -23,6 +23,7 @@ import { authenticate, currentUser } from '../lib/auth';
 import { AppError, badRequest, forbidden, notFound, parse } from '../lib/errors';
 import { directoryKey, loginKey, stableId, tempPassword } from '../lib/ids';
 import { submitBulkResult, verifyLaunchTicket, type BulkResponse, type LaunchContext } from '../lib/hubSdk';
+import { pickLaunchSession } from '../lib/launchSession';
 import { C } from '../lib/paths';
 import { serialize } from '../lib/time';
 import { importRoster } from './classes';
@@ -247,6 +248,17 @@ export async function pushSnapshotToLms(classId: string, snapshotId: string): Pr
 
 const linkSchema = z.object({ classId: z.string().min(1).max(64) });
 
+/**
+ * The session a student arriving from the LMS should land in: the most recently started open
+ * session (a paused one if nothing is open). Lecturers often leave earlier sessions open for late
+ * replies, so "any open session" would drop students into last week's class.
+ */
+export async function liveSessionForLaunch(classId: string): Promise<string | null> {
+  const snap = await C.sessions(classId).where('status', 'in', ['open', 'paused']).get();
+  const pick = pickLaunchSession(snap.docs.map((d) => d.data() as SessionDoc));
+  return pick?.sessionId ?? null;
+}
+
 export default async function ltiRoutes(app: FastifyInstance) {
   /** Public: exchange a Hub launch ticket for a session. */
   app.post('/lti/launch', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
@@ -316,8 +328,8 @@ export default async function ltiRoutes(app: FastifyInstance) {
           await importRoster(cls.classId, [{ studentId: user.studentId, fullName: user.displayName, email: user.email ?? undefined }], 'lti');
           await audit(req, 'lti.enrol', 'class', cls.classId, { uid, studentId: user.studentId }, actor);
         }
-        const open = await C.sessions(cls.classId).where('status', '==', 'open').limit(1).get();
-        redirect = open.empty ? `/classes/${cls.classId}` : `/classes/${cls.classId}/sessions/${open.docs[0]!.id}`;
+        const live = await liveSessionForLaunch(cls.classId);
+        redirect = live ? `/classes/${cls.classId}/sessions/${live}` : `/classes/${cls.classId}`;
       }
     }
     await C.user(uid).update({ lastLoginAt: now() });

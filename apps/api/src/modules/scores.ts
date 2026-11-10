@@ -7,7 +7,7 @@ import { audit } from '../lib/audit';
 import { currentUser } from '../lib/auth';
 import { forbidden, notFound, parse } from '../lib/errors';
 import { C } from '../lib/paths';
-import { computeClassScores, loadScoreConfig, scoreConfigRef } from '../lib/scores';
+import { computeClassScores, computeStudentScoreDetail, loadScoreConfig, scoreConfigRef } from '../lib/scores';
 import { serialize } from '../lib/time';
 import { pushSnapshotToLms } from './lti';
 
@@ -28,11 +28,20 @@ export default async function scoreRoutes(app: FastifyInstance) {
     const me = currentUser(req);
     const a = await loadClassAccess(me, classId);
     if (!a.cls.settings.showScoreToStudents && !a.canModerate) throw forbidden('Lớp chưa hiển thị điểm tham gia cho sinh viên');
-    const live = await computeClassScores(a.cls);
-    const row = live.rows.find((r) => r.uid === me.uid);
-    if (!row) throw notFound();
-    const { adjustmentNote: _n, ...rest } = row;
-    return serialize({ config: live.config, row: rest, sessionsHeld: live.sessionsHeld });
+    const detail = await computeStudentScoreDetail(a.cls, me.uid);
+    if (!detail) throw notFound();
+    // The lecturer's note and the test-account flag stay with the lecturer.
+    const { adjustmentNote: _n, excluded: _x, ...row } = detail.row;
+    return serialize({ ...detail, row });
+  });
+
+  /** One student's score with a per-session breakdown (lecturer view). */
+  app.get('/classes/:classId/scores/students/:uid', async (req) => {
+    const { classId, uid } = req.params as { classId: string; uid: string };
+    const a = await requireClassModerator(currentUser(req), classId);
+    const detail = await computeStudentScoreDetail(a.cls, uid);
+    if (!detail) throw notFound();
+    return serialize(detail);
   });
 
   app.put('/classes/:classId/score-config', async (req) => {
@@ -54,11 +63,11 @@ export default async function scoreRoutes(app: FastifyInstance) {
     const { classId, uid } = req.params as { classId: string; uid: string };
     const me = currentUser(req);
     await requireClassManager(me, classId);
-    const { delta, note } = parse(scoreAdjustmentSchema, req.body);
+    const { delta, note, excluded } = parse(scoreAdjustmentSchema, req.body);
     const ref = C.class(classId).collection('scoreAdjustments').doc(uid);
-    if (delta === 0 && !note) await ref.delete();
-    else await ref.set({ delta, note, by: me.uid, updatedAt: now() });
-    await audit(req, 'score.adjust', 'class', classId, { uid, delta });
+    if (delta === 0 && !note && !excluded) await ref.delete();
+    else await ref.set({ delta, note, excluded, by: me.uid, updatedAt: now() });
+    await audit(req, 'score.adjust', 'class', classId, { uid, delta, excluded });
     return { ok: true };
   });
 
@@ -74,7 +83,8 @@ export default async function scoreRoutes(app: FastifyInstance) {
       configVersion: live.config.version,
       config: live.config,
       sessionsHeld: live.sessionsHeld,
-      rows: live.rows.map((r) => ({ uid: r.uid, studentId: r.studentId, displayName: r.displayName, score: r.score, raw: r.raw, adjustment: r.adjustment })),
+      // Excluded members (test accounts) are not part of the official scores nor the LMS push.
+      rows: live.rows.filter((r) => !r.excluded).map((r) => ({ uid: r.uid, studentId: r.studentId, displayName: r.displayName, score: r.score, raw: r.raw, adjustment: r.adjustment })),
       confirmedBy: me.uid,
       confirmedByName: me.displayName,
       confirmedAt: now(),

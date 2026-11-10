@@ -64,5 +64,5 @@ export const LABELS_EN: Record<string, string> = {
   'Hoàn thành hoạt động trên lớp': 'In-class activity completion',
   'Trả lời câu hỏi/thảo luận': 'Answers and discussion',
   'Đặt câu hỏi liên quan': 'Relevant questions',
-  'Đóng góp phản hồi có ích': 'Helpful contributions',
+  'Câu trả lời được giảng viên xác nhận': 'Answers confirmed by the lecturer',
 };

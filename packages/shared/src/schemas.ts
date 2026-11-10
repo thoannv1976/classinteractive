@@ -360,7 +360,12 @@ export const scoreConfigSchema = z
   })
   .refine((v) => Object.values(v.weights).reduce((a, b) => a + b, 0) === 100, 'Tổng trọng số phải bằng 100%');
 
-export const scoreAdjustmentSchema = z.object({ delta: z.number().min(-100).max(100), note: trimmed(500).default('') });
+export const scoreAdjustmentSchema = z.object({
+  delta: z.number().min(-100).max(100),
+  note: trimmed(500).default(''),
+  /** Leave this member out of confirmed scores and the LMS push (e.g. a test account). */
+  excluded: z.boolean().default(false),
+});
 
 const providerSettingsSchema = z.object({
   enabled: z.boolean(),
