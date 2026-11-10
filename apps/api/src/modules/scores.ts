@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ScoreConfig } from '@classinteract/shared';
-import { scoreAdjustmentSchema, scoreConfigSchema } from '@classinteract/shared';
+import type { ClassStatsDoc } from '@classinteract/shared';
+import { computeBadges, computeStreak, nextMilestone, scoreAdjustmentSchema, scoreConfigSchema } from '@classinteract/shared';
 import { db, now } from '../firebase';
 import { loadClassAccess, requireClassManager, requireClassModerator } from '../lib/access';
 import { audit } from '../lib/audit';
@@ -35,6 +36,36 @@ export default async function scoreRoutes(app: FastifyInstance) {
     // The lecturer's note and the test-account flag stay with the lecturer.
     const { adjustmentNote: _n, excluded: _x, ...row } = detail.row;
     return serialize({ ...detail, row });
+  });
+
+  /**
+   * The signed-in student's badges and attendance streak, plus the class goals everyone works
+   * towards together. Shown whether or not the class shows scores (no score is included).
+   */
+  app.get('/classes/:classId/achievements/me', async (req) => {
+    const { classId } = req.params as { classId: string };
+    const me = currentUser(req);
+    const a = await loadClassAccess(me, classId);
+    const [detail, statsSnap] = await Promise.all([computeStudentScoreDetail(a.cls, me.uid), C.classStats(classId).get()]);
+    const stats = statsSnap.data() as ClassStatsDoc | undefined;
+    const classGoals = {
+      questions: nextMilestone(stats?.questionCount ?? 0),
+      answers: nextMilestone((stats?.answerCount ?? 0) + (stats?.commentCount ?? 0) + (stats?.reflectionCount ?? 0)),
+    };
+    if (!detail) return { badges: [], streak: { current: 0, best: 0 }, sessionsHeld: 0, classGoals };
+    const c = detail.row.components;
+    return {
+      badges: computeBadges({
+        sessions: detail.sessions,
+        caps: detail.config.caps,
+        acceptedAnswers: c.helpful.done,
+        activities: { done: c.activities.done, possible: c.activities.possible },
+        exitTickets: { done: c.exitTickets.done, possible: c.exitTickets.possible },
+      }),
+      streak: computeStreak(detail.sessions),
+      sessionsHeld: detail.sessionsHeld,
+      classGoals,
+    };
   });
 
   /** One student's score with a per-session breakdown (lecturer view). */

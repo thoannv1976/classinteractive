@@ -6,6 +6,7 @@ import { useMe } from '@/lib/auth';
 import { useApi } from '@/lib/query';
 import { ScoreBreakdown, type ScoreDetail } from '../common/ScoreBreakdown';
 import { StudentProfileView } from '../common/StudentProfileView';
+import { AchievementsCard } from './Achievements';
 
 export function MyClassParticipationPage() {
   const { classId = '' } = useParams();
@@ -20,6 +21,7 @@ export function MyClassParticipationPage() {
         description={t('Chỉ bạn và giảng viên của lớp xem được hồ sơ này. Đây là số liệu tham khảo, không phải điểm chính thức.')}
       />
       <MyScoreCard classId={classId} />
+      <AchievementsCard classId={classId} />
       <StudentProfileView classId={classId} uid={me.uid} linkBase={`/classes/${classId}`} />
     </div>
   );

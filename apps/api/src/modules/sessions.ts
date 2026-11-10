@@ -76,9 +76,22 @@ export default async function sessionRoutes(app: FastifyInstance) {
     const snap = await C.sessions(classId).orderBy('sessionNumber', 'asc').get();
     let sessions = snap.docs.map((d) => d.data() as SessionDoc);
     if (!a.canModerate) sessions = sessions.filter((s) => s.status !== 'archived');
-    const stats = sessions.length ? await db.getAll(...sessions.map((s) => C.sessionStats(classId, s.sessionId))) : [];
+    const [stats, summaries] = sessions.length
+      ? await Promise.all([
+          db.getAll(...sessions.map((s) => C.sessionStats(classId, s.sessionId))),
+          db.getAll(...sessions.map((s) => C.session(classId, s.sessionId).collection('summary').doc('current'))),
+        ])
+      : [[], []];
     return {
-      items: serialize(sessions.map((s, i) => ({ ...s, joinCode: a.canModerate || s.status === 'open' ? s.joinCode : null, stats: stats[i]?.data() ?? null }))),
+      items: serialize(
+        sessions.map((s, i) => ({
+          ...s,
+          joinCode: a.canModerate || s.status === 'open' ? s.joinCode : null,
+          stats: stats[i]?.data() ?? null,
+          // A summary students can read (staff also see drafts in the session view).
+          hasSummary: !!summaries[i]?.data()?.published,
+        })),
+      ),
     };
   });
 

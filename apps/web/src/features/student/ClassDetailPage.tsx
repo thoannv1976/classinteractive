@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, ChevronRight, ShieldCheck } from 'lucide-react';
+import { BarChart3, BookOpenText, CalendarDays, ChevronRight, ShieldCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { ClassDoc, SessionDoc, SessionStatsDoc } from '@classinteract/shared';
@@ -9,12 +9,14 @@ import { PageHeader } from '@/components/ui/misc';
 import { useApi } from '@/lib/query';
 import { cn } from '@/lib/utils';
 import { SessionStatusBadge, sessionLabel, sessionTime } from '../common/SessionStatus';
+import { ClassGoalsCard } from './Achievements';
 import { StartGuide } from './StartGuide';
+import { WaitingQuestions } from './WaitingQuestions';
 
 export function ClassDetailPage() {
   const { classId } = useParams();
   const cls = useApi<{ class: ClassDoc; access: { canModerate: boolean; memberRole: string | null } }>(`/classes/${classId}`);
-  const sessions = useApi<{ items: (SessionDoc & { stats: SessionStatsDoc | null })[] }>(`/classes/${classId}/sessions`, { refetchInterval: 30_000 });
+  const sessions = useApi<{ items: (SessionDoc & { stats: SessionStatsDoc | null; hasSummary?: boolean })[] }>(`/classes/${classId}/sessions`, { refetchInterval: 30_000 });
   const { t } = useTranslation();
   if (cls.error) return <ErrorState error={cls.error} />;
   const c = cls.data?.class;
@@ -38,7 +40,13 @@ export function ClassDetailPage() {
           </>
         }
       />
-      {cls.data && !cls.data.access.canModerate && <StartGuide classId={classId ?? ''} sessions={items} />}
+      {cls.data && !cls.data.access.canModerate && (
+        <>
+          <StartGuide classId={classId ?? ''} sessions={items} />
+          <WaitingQuestions classId={classId ?? ''} />
+          <ClassGoalsCard classId={classId ?? ''} />
+        </>
+      )}
       <Card>
         <CardHeader title={t('Các buổi học')} description={t('Chọn buổi đang diễn ra để tham gia, hoặc xem lại hỏi đáp của các buổi trước.')} />
         <CardBody className="p-0 sm:p-0">
@@ -58,6 +66,11 @@ export function ClassDetailPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{sessionLabel(s)}</span>
                         <SessionStatusBadge status={s.status} />
+                        {s.hasSummary && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-secondary-soft px-2 py-0.5 text-xs font-medium text-secondary">
+                            <BookOpenText className="h-3 w-3" /> {t('Có tóm tắt')}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 text-xs text-muted">
                         {sessionTime(s)}
