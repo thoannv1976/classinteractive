@@ -163,6 +163,43 @@ describe('engagement score', () => {
     expect(csv.raw.body).toContain('SV1');
     expect((await s1.get(`/classes/${classId}/scores`)).status).toBe(403);
   });
+
+  it("explains one student's score session by session, for the lecturer and the student", async () => {
+    const row = (await lec.get(`/classes/${classId}/scores`)).body.rows.find((x: any) => x.studentId === 'SV1');
+    const detail = await lec.get(`/classes/${classId}/scores/students/${row.uid}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.row.score).toBe(row.score);
+    expect(detail.body.row.adjustmentNote).toBe('Trình bày tốt');
+    expect(detail.body.sessions.length).toBe(detail.body.sessionsHeld);
+    expect(detail.body.sessions[0]).toEqual(expect.objectContaining({ sessionId: expect.any(String), joined: expect.any(Boolean), questions: expect.any(Number), contributions: expect.any(Number) }));
+    const mine = await s1.get(`/classes/${classId}/scores/me`);
+    expect(mine.body.sessions.length).toBe(detail.body.sessionsHeld);
+    expect(mine.body.row.excluded).toBeUndefined();
+    expect((await s1.get(`/classes/${classId}/scores/students/${row.uid}`)).status).toBe(403);
+  });
+
+  it('leaves excluded (test) accounts out of the confirmed scores', async () => {
+    const sv2 = (await lec.get(`/classes/${classId}/scores`)).body.rows.find((x: any) => x.studentId === 'SV2');
+    await lec.put(`/classes/${classId}/score-adjustments/${sv2.uid}`, { delta: 0, note: '', excluded: true });
+    const rows = (await lec.get(`/classes/${classId}/scores`)).body.rows;
+    expect(rows.find((x: any) => x.studentId === 'SV2').excluded).toBe(true);
+    expect(rows.find((x: any) => x.studentId === 'SV1').excluded).toBe(false);
+    await lec.post(`/classes/${classId}/scores/confirm`);
+    const snap = (await lec.get(`/classes/${classId}/scores/snapshots`)).body.items[0];
+    expect(snap.rows.map((r: any) => r.studentId)).not.toContain('SV2');
+    expect(snap.rows.map((r: any) => r.studentId)).toContain('SV1');
+    await lec.put(`/classes/${classId}/score-adjustments/${sv2.uid}`, { delta: 0, note: '', excluded: false });
+    expect((await lec.get(`/classes/${classId}/scores`)).body.rows.find((x: any) => x.studentId === 'SV2').excluded).toBe(false);
+  });
+
+  it("reports a student's progress in a session against the per-session caps", async () => {
+    const r = await s1.get(`/classes/${classId}/sessions/${sessionId}/my-progress`);
+    expect(r.status).toBe(200);
+    expect(r.body.caps).toEqual(expect.objectContaining({ answers: 3, questions: 1, helpful: 2 }));
+    expect(r.body.questions).toBeGreaterThan(0);
+    expect(r.body.exitTickets.done).toBe(r.body.exitTickets.opened);
+    expect(r.body.activities).toEqual(expect.objectContaining({ opened: expect.any(Number), done: expect.any(Number), open: expect.any(Number) }));
+  });
 });
 
 describe('automatic AI after a session', () => {

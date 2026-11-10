@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, CheckCircle2, Download, Info, Pencil, Search, Settings2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
 import type { ScoreComponent, ScoreConfig, Time } from '@classinteract/shared';
 import { SCORE_COMPONENTS, SCORE_COMPONENT_LABELS } from '@classinteract/shared';
@@ -34,6 +35,8 @@ export interface ScoreRow {
   score: number | null;
   sessionsCounted: number;
   adjustmentNote?: string;
+  /** Left out of confirmed scores and the Moodle push (test accounts). */
+  excluded?: boolean;
 }
 
 interface SnapshotMeta {
@@ -70,7 +73,7 @@ export const SCORE_SHORT_LABELS: Record<ScoreComponent, string> = {
   activities: tk('Hoạt động'),
   answers: tk('Trả lời/thảo luận'),
   questions: tk('Đặt câu hỏi'),
-  helpful: tk('Phản hồi có ích'),
+  helpful: tk('GV xác nhận'),
   exitTickets: tk('Phiếu cuối buổi'),
 };
 
@@ -167,8 +170,11 @@ export function ScoresPage() {
             {t('Điểm tham gia là điểm tham khảo (0–100), chỉ tính trên các cơ hội thực sự đã diễn ra: {{n}} buổi học đã tổ chức và các hoạt động đã mở. Thành phần nào chưa có cơ hội sẽ được bỏ qua và trọng số của các thành phần còn lại được chia lại, nên một buổi không có hoạt động không làm giảm điểm của ai.', { n: data.sessionsHeld })}
           </p>
           <p>
-            {t('Để chống spam, mỗi buổi chỉ tính tối đa {{answers}} trả lời/thảo luận, {{questions}} câu hỏi và {{helpful}} phản hồi có ích.', { answers: cfg.caps.answers, questions: cfg.caps.questions, helpful: cfg.caps.helpful })}{' '}
+            {t('Để chống spam, mỗi buổi chỉ tính tối đa {{answers}} trả lời/thảo luận, {{questions}} câu hỏi và {{helpful}} câu trả lời được giảng viên xác nhận.', { answers: cfg.caps.answers, questions: cfg.caps.questions, helpful: cfg.caps.helpful })}{' '}
             <strong>{t('Đây không phải điểm chính thức cho đến khi giảng viên xác nhận điểm.')}</strong>
+          </p>
+          <p>
+            {t('Phần "GV xác nhận" chỉ có điểm khi giảng viên xác nhận câu trả lời: trong màn hình buổi học, bấm ⋮ ở một câu trả lời tốt rồi chọn "Xác nhận câu trả lời đúng". Bấm vào tên sinh viên để xem chi tiết và cách tăng điểm.')}
           </p>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <Badge tone="primary">{t('Phiên bản công thức {{v}}', { v: cfg.version })}</Badge>
@@ -238,9 +244,18 @@ export function ScoresPage() {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.uid} className="hover:bg-slate-50">
+                  <tr key={r.uid} className={cn('hover:bg-slate-50', r.excluded && 'opacity-60')}>
                     <Td className="font-mono text-xs">{r.studentId ?? '—'}</Td>
-                    <Td className="font-medium">{r.displayName}</Td>
+                    <Td className="font-medium">
+                      <Link to={`/teach/classes/${cls.classId}/analytics/students/${r.uid}?from=scores`} className="text-primary underline-offset-2 hover:underline">
+                        {r.displayName}
+                      </Link>
+                      {r.excluded && (
+                        <Badge tone="warning" className="ml-2" title={t('Không đưa vào bản xác nhận điểm và không gửi về Moodle')}>
+                          {t('Không tính điểm')}
+                        </Badge>
+                      )}
+                    </Td>
                     {SCORE_COMPONENTS.map((k) => {
                       const c = r.components[k];
                       return (
@@ -328,7 +343,7 @@ export function ScoresPage() {
         onConfirm={() => void confirmScores()}
       >
         <p className="text-sm text-muted">
-          {t('Điểm hiện tại của {{n}} sinh viên sẽ được lưu thành một bản chốt kèm phiên bản công thức {{v}}. Bản chốt này là điểm chính thức có thể xuất ra Excel; điểm tham khảo vẫn tiếp tục cập nhật.', { n: data.rows.length, v: cfg.version })}
+          {t('Điểm hiện tại của {{n}} sinh viên sẽ được lưu thành một bản chốt kèm phiên bản công thức {{v}}. Bản chốt này là điểm chính thức có thể xuất ra Excel; điểm tham khảo vẫn tiếp tục cập nhật.', { n: data.rows.filter((r) => !r.excluded).length, v: cfg.version })}
         </p>
       </ConfirmDialog>
     </div>
@@ -401,7 +416,7 @@ function ConfigDialog({ base, config, onClose }: { base: string; config: ScoreCo
           <div className="grid gap-3 sm:grid-cols-3">
             {capField('answers', t('Trả lời/thảo luận'))}
             {capField('questions', t('Đặt câu hỏi'))}
-            {capField('helpful', t('Phản hồi có ích'))}
+            {capField('helpful', t('Câu trả lời được giảng viên xác nhận'))}
           </div>
         </div>
         <Field label={t('Buổi học được tính')} htmlFor="basis">
@@ -419,13 +434,14 @@ function AdjustDialog({ base, row, onClose }: { base: string; row: ScoreRow; onC
   const { t } = useTranslation();
   const [delta, setDelta] = useState<number>(row.adjustment ?? 0);
   const [note, setNote] = useState(row.adjustmentNote ?? '');
+  const [excluded, setExcluded] = useState(!!row.excluded);
   const [saving, setSaving] = useState(false);
   const valid = Number.isFinite(delta) && delta >= -100 && delta <= 100 && note.length <= 500;
 
   const submit = async (d: number, n: string) => {
     setSaving(true);
     try {
-      await api.put(`${base}/score-adjustments/${row.uid}`, { delta: d, note: n.trim() });
+      await api.put(`${base}/score-adjustments/${row.uid}`, { delta: d, note: n.trim(), excluded });
       await invalidate(`${base}/scores`);
       toast.success(d === 0 && !n.trim() ? t('Đã xóa điều chỉnh') : t('Đã lưu điều chỉnh'));
       onClose();
@@ -464,6 +480,10 @@ function AdjustDialog({ base, row, onClose }: { base: string; row: ScoreRow; onC
         <Field label={t('Ghi chú')} htmlFor="note" hint={t('Lý do điều chỉnh (ví dụ: trình bày tốt trên lớp). Để 0 và bỏ trống ghi chú để xóa điều chỉnh.')}>
           <Textarea id="note" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
         </Field>
+        <div className="rounded-lg border border-border p-3">
+          <Switch id="excluded" checked={excluded} onCheckedChange={setExcluded} label={t('Không tính điểm tài khoản này')} />
+          <p className="mt-1 text-xs text-muted">{t('Dùng cho tài khoản thử hoặc người không học lớp này: vẫn hiện trong bảng nhưng không đưa vào bản xác nhận điểm và không gửi về Moodle.')}</p>
+        </div>
       </div>
     </Dialog>
   );

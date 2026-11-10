@@ -88,7 +88,7 @@ export const SCORE_COMPONENT_LABELS: Record<import('./constants').ScoreComponent
   activities: 'Hoàn thành hoạt động trên lớp',
   answers: 'Trả lời câu hỏi/thảo luận',
   questions: 'Đặt câu hỏi liên quan',
-  helpful: 'Đóng góp phản hồi có ích',
+  helpful: 'Câu trả lời được giảng viên xác nhận',
   exitTickets: 'Phiếu cuối buổi',
 };
 

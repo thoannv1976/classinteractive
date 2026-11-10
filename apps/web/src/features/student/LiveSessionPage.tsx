@@ -21,6 +21,7 @@ import { useApi } from '@/lib/query';
 import { toDate } from '@/lib/utils';
 import i18n from '@/i18n';
 import { SessionStatusBadge, sessionLabel, sessionTime } from '../common/SessionStatus';
+import { SessionChecklist } from './SessionChecklist';
 
 export function acceptsPosts(s: SessionDoc | null) {
   if (!s) return { ok: false, reason: '' };
@@ -96,6 +97,14 @@ export function StudentSessionPage() {
           <div className="mb-4">
             <Alert tone={s.status === 'paused' ? 'warning' : 'info'}>{accept.reason}. {t('Bạn vẫn có thể xem lại nội dung.')}</Alert>
           </div>
+        )}
+        {!meta.data?.access.canModerate && (
+          <SessionChecklist
+            classId={classId}
+            sessionId={sessionId}
+            bump={`${feed.data.length}:${acts.data.map((a) => a.status).join(',')}:${s.status}`}
+            onOpenTab={(v) => setParams({ tab: v }, { replace: true })}
+          />
         )}
         <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
           <TabsList className="mb-4">
