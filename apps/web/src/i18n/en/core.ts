@@ -62,6 +62,8 @@ const en: Record<string, string> = {
   'Bấm vào câu hỏi để bình chọn hoặc xem câu trả lời, thay vì gửi câu mới. Câu bạn đang viết vẫn được giữ.':
     'Click a question to upvote it or read its answers instead of posting a new one. Your draft is kept.',
   'Mở câu hỏi này': 'Open this question',
+  'Đã có phiên bản mới của ứng dụng.': 'A new version of the app is available.',
+  'Tải lại': 'Reload',
   'Chủ đề': 'Topics',
   'Tên bạn được ẩn với các bạn trong lớp.': 'Your name is hidden from classmates.',
   'Theo chính sách lớp, giảng viên vẫn có thể xem danh tính (mỗi lần xem được ghi nhật ký).': 'Under the class policy, lecturers can still see who you are (each view is logged).',
