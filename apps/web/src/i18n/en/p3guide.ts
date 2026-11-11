@@ -1,5 +1,14 @@
 /** English for the student start guide, the per-session checklist and the score breakdown ("how to raise your score"). */
 const en: Record<string, string> = {
+  // ---- AI answer suggestions (Confirm answers tab)
+  'AI: nên xác nhận': 'AI: worth confirming',
+  'AI: chưa đầy đủ': 'AI: incomplete',
+  'AI: chưa đúng trọng tâm': 'AI: off the point',
+  'Công nhận hàng loạt với gợi ý của AI': 'Confirm in bulk with AI suggestions',
+  'AI đọc từng câu hỏi và câu trả lời, đánh dấu những câu nên xác nhận. AI chỉ gợi ý; thầy/cô xem lại rồi bấm xác nhận.':
+    'AI reads each question and answer and marks the answers worth confirming. AI only suggests; you review them and confirm.',
+  '{{n}} câu chưa được AI xem.': '{{n}} not yet reviewed by AI.',
+  'Chọn {{n}} câu AI gợi ý': 'Select the {{n}} AI suggests',
   // Score breakdown
   'Làm đủ các hoạt động giảng viên mở trong buổi học (thăm dò, câu hỏi nhanh, kiểm tra mức hiểu bài). Bạn đã làm {{done}}/{{possible}}.':
     'Complete every activity the lecturer opens in class (polls, quick questions, understanding checks). You have done {{done}}/{{possible}}.',

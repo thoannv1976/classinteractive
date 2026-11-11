@@ -55,6 +55,7 @@ export const LABELS_EN: Record<string, string> = {
   'Gom nhóm câu hỏi': 'Question clustering',
   'Tóm tắt buổi học': 'Session summary',
   'Tổng hợp câu trả lời hoạt động': 'Activity response summary',
+  'AI gợi ý câu trả lời tốt': 'AI suggests good answers',
   'Gợi ý giảng dạy': 'Teaching insights',
   'Đang chờ': 'Queued',
   'Đang chạy': 'Running',

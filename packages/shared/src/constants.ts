@@ -74,7 +74,7 @@ export const AI_TASK_TYPES = ['answer', 'classify', 'cluster', 'summarize', 'ins
 export type AiTaskType = (typeof AI_TASK_TYPES)[number];
 
 /** Background AI jobs (Cloud Tasks in production, in-process in development). */
-export const AI_JOB_TYPES = ['classify_topics', 'cluster_questions', 'summarize_session', 'summarize_activity', 'teaching_insights'] as const;
+export const AI_JOB_TYPES = ['classify_topics', 'cluster_questions', 'summarize_session', 'summarize_activity', 'teaching_insights', 'suggest_answers'] as const;
 export type AiJobType = (typeof AI_JOB_TYPES)[number];
 export const AI_JOB_STATUSES = ['queued', 'running', 'completed', 'failed'] as const;
 export type AiJobStatus = (typeof AI_JOB_STATUSES)[number];

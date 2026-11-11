@@ -305,7 +305,7 @@ export const topicReviewSchema = z.object({
 });
 
 export const startJobSchema = z.object({
-  type: z.enum(['classify_topics', 'cluster_questions', 'summarize_session', 'summarize_activity', 'teaching_insights']),
+  type: z.enum(['classify_topics', 'cluster_questions', 'summarize_session', 'summarize_activity', 'teaching_insights', 'suggest_answers']),
   sessionId: z.string().max(64).optional(),
   activityId: z.string().max(64).optional(),
   scope: z.enum(['session', 'class']).optional(),

@@ -1,21 +1,29 @@
-import { CheckCircle2, CheckCheck, Lightbulb, MessageCircleQuestion } from 'lucide-react';
+import { CheckCircle2, CheckCheck, Lightbulb, ListChecks, MessageCircleQuestion, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { PostDoc, SessionDoc } from '@classinteract/shared';
+import type { AnswerSuggestion, AnswerVerdict, PostDoc, SessionDoc } from '@classinteract/shared';
+import { AiJobButton } from '@/components/classroom/AiJobs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody } from '@/components/ui/card';
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/feedback';
 import { Select } from '@/components/ui/input';
+import { tk } from '@/i18n';
 import { api, errorMessage } from '@/lib/api';
 import { invalidate, useApi } from '@/lib/query';
 import { formatDateTime } from '@/lib/utils';
 import { sessionLabel } from '../common/SessionStatus';
 import { useClassCtx } from './ClassLayout';
 
-type PendingAnswer = PostDoc & { question: { postId: string; content: string; authorName: string } ; helpfulScore: number };
+type PendingAnswer = PostDoc & { question: { postId: string; content: string; authorName: string }; helpfulScore: number; aiSuggestion: AnswerSuggestion | null };
+
+const VERDICT: Record<AnswerVerdict, { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
+  good: { label: tk('AI: nên xác nhận'), tone: 'success' },
+  partial: { label: tk('AI: chưa đầy đủ'), tone: 'warning' },
+  off_topic: { label: tk('AI: chưa đúng trọng tâm'), tone: 'neutral' },
+};
 
 /**
  * Students' answers waiting for the lecturer's confirmation. Confirming is what fills the
@@ -28,11 +36,14 @@ export function AnswersReviewPage() {
   const [sessionId, setSessionId] = useState('');
   const sessions = useApi<{ items: SessionDoc[] }>(`/classes/${cls.classId}/sessions`);
   const path = `/classes/${cls.classId}/answers/pending${sessionId ? `?sessionId=${sessionId}` : ''}`;
-  const { data, isLoading, error, refetch } = useApi<{ items: PendingAnswer[] }>(path);
+  const { data, isLoading, error, refetch } = useApi<{ items: PendingAnswer[]; aiReviewed: number }>(path);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const items = useMemo(() => data?.items ?? [], [data]);
   const sessionById = useMemo(() => new Map((sessions.data?.items ?? []).map((s) => [s.sessionId, s])), [sessions.data]);
+  const aiGood = useMemo(() => items.filter((i) => i.aiSuggestion?.verdict === 'good'), [items]);
+  const notReviewed = items.length - (data?.aiReviewed ?? 0);
+  const aiOff = !cls.settings.aiEnabled;
 
   const confirm = async (list: PendingAnswer[]) => {
     setBusy(true);
@@ -71,6 +82,40 @@ export function AnswersReviewPage() {
           {t('Mỗi câu trả lời được xác nhận giúp tác giả có điểm phần "Câu trả lời được giảng viên xác nhận" và đánh dấu câu hỏi là đã được trả lời. Câu trả lời được các bạn bấm "Hữu ích" nhiều được xếp lên đầu.')}
         </p>
       </div>
+
+      <Card>
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="flex items-center gap-2 font-medium">
+              <Sparkles className="h-4 w-4 text-violet-600" /> {t('Công nhận hàng loạt với gợi ý của AI')}
+            </p>
+            <p className="mt-0.5 text-muted">
+              {t('AI đọc từng câu hỏi và câu trả lời, đánh dấu những câu nên xác nhận. AI chỉ gợi ý; thầy/cô xem lại rồi bấm xác nhận.')}
+              {items.length > 0 && notReviewed > 0 && ` ${t('{{n}} câu chưa được AI xem.', { n: notReviewed })}`}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <AiJobButton
+              classId={cls.classId}
+              type="suggest_answers"
+              sessionId={sessionId || null}
+              label={t('AI gợi ý câu trả lời tốt')}
+              onDone={() => void refetch()}
+              disabled={aiOff || !items.length || notReviewed === 0}
+              size="sm"
+              variant="primary"
+            />
+            {aiGood.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => setSelected(new Set(aiGood.map((i) => i.postId)))}>
+                <ListChecks className="h-4 w-4" /> {t('Chọn {{n}} câu AI gợi ý', { n: aiGood.length })}
+              </Button>
+            )}
+          </div>
+        </CardBody>
+        {aiOff && (
+          <CardBody className="pt-0 text-xs text-muted">{t('Lớp này chưa bật chức năng AI. Bật trong Cài đặt lớp để sử dụng.')}</CardBody>
+        )}
+      </Card>
 
       <Card>
         <CardBody className="flex flex-wrap items-center justify-between gap-3">
@@ -121,6 +166,14 @@ export function AnswersReviewPage() {
                           </span>
                         </p>
                         <p className="whitespace-pre-wrap text-sm">{p.content}</p>
+                        {p.aiSuggestion && (
+                          <p className="flex flex-wrap items-center gap-2 text-xs">
+                            <Badge tone={VERDICT[p.aiSuggestion.verdict].tone}>
+                              <Sparkles className="h-3 w-3" /> {t(VERDICT[p.aiSuggestion.verdict].label)}
+                            </Badge>
+                            {p.aiSuggestion.reason && <span className="text-muted">{p.aiSuggestion.reason}</span>}
+                          </p>
+                        )}
                         <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
                           <span className="font-medium text-fg">{p.authorName}</span>
                           <span>·</span>

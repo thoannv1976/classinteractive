@@ -200,6 +200,8 @@ function fakeOutput(provider: AiProvider, req: StructuredRequest): unknown {
         insights: [{ category: 'unanswered', title: 'Còn câu hỏi chưa trả lời', detail: 'Mô phỏng', evidence: ['1 câu hỏi'], refs: ids.slice(0, 1) }],
         followUpQuestions: ['Câu hỏi tiếp nối mô phỏng?'],
       };
+    case 'answer_review':
+      return { items: ids.map((id, i) => ({ id, verdict: i === 0 ? 'good' : 'partial', reason: 'Mô phỏng' })) };
     case 'teaching_insights_translation':
       return {
         insights: [{ category: 'unanswered', title: 'Some questions are still unanswered', detail: 'Simulated', evidence: ['1 question'], refs: [] }],
