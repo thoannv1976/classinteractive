@@ -59,7 +59,9 @@ const en: Record<string, string> = {
   'Bản nháp vẫn được giữ.': 'Your draft has been kept.',
   'Loại bài đăng': 'Post type',
   'Có thể câu hỏi tương tự đã có:': 'A similar question may already exist:',
-  'Bạn có thể bình chọn câu hỏi đó thay vì gửi câu mới.': 'You can upvote that question instead of posting a new one.',
+  'Bấm vào câu hỏi để bình chọn hoặc xem câu trả lời, thay vì gửi câu mới. Câu bạn đang viết vẫn được giữ.':
+    'Click a question to upvote it or read its answers instead of posting a new one. Your draft is kept.',
+  'Mở câu hỏi này': 'Open this question',
   'Chủ đề': 'Topics',
   'Tên bạn được ẩn với các bạn trong lớp.': 'Your name is hidden from classmates.',
   'Theo chính sách lớp, giảng viên vẫn có thể xem danh tính (mỗi lần xem được ghi nhật ký).': 'Under the class policy, lecturers can still see who you are (each view is logged).',

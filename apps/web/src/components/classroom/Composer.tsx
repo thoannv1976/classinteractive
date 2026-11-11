@@ -1,8 +1,9 @@
-import { Send } from 'lucide-react';
+import { ChevronRight, MessageSquare, Send } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
-import type { PostDoc, PostType } from '@classinteract/shared';
+import type { PostDoc, PostType, QuestionStatus } from '@classinteract/shared';
 import { LIMITS } from '@classinteract/shared';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
@@ -18,7 +19,10 @@ interface SimilarItem {
   sessionId: string;
   content: string;
   voteCount: number;
+  replyCount?: number;
+  status?: QuestionStatus | null;
 }
+const ANSWERED: (QuestionStatus | null | undefined)[] = ['answered', 'resolved'];
 interface SimilarResp {
   method: 'embedding' | 'none';
   items: SimilarItem[];
@@ -43,6 +47,7 @@ export function Composer({
   disabledReason,
   existing,
   onPosted,
+  staff,
 }: {
   classId: string;
   sessionId: string;
@@ -54,6 +59,8 @@ export function Composer({
   disabledReason?: string;
   existing: PostDoc[];
   onPosted?: () => void;
+  /** Lecturer/TA view: similar questions open in the staff thread page. */
+  staff?: boolean;
 }) {
   const { t } = useTranslation();
   const [type, setType] = useState<PostType>('question');
@@ -84,9 +91,11 @@ export function Composer({
     }, SEMANTIC_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [wantsSemantic, draft, classId, sessionId]);
-  const similar: { postId: string; content: string; voteCount: number }[] =
+  const similar: SimilarItem[] =
     type !== 'question' || content.length <= 15 ? [] : wantsSemantic && semantic ? semantic : similarQuestions(content, existing);
   const cfg = ROOT_TYPES.find((rt) => rt.value === type)!;
+  // The draft is saved per session, so it is still here when the student comes back from the question.
+  const threadPath = (p: SimilarItem) => `${staff ? '/teach' : ''}/classes/${classId}/sessions/${p.sessionId || sessionId}/posts/${p.postId}`;
 
   const submit = async () => {
     if (!content.trim() || sending) return;
@@ -152,14 +161,33 @@ export function Composer({
       {similar.length > 0 && (
         <div className="mb-2 rounded-lg bg-warning-soft px-3 py-2 text-xs text-amber-900">
           <p className="font-medium">{t('Có thể câu hỏi tương tự đã có:')}</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+          <ul className="mt-1 space-y-0.5">
             {similar.map((p) => (
-              <li key={p.postId} className="line-clamp-1">
-                {p.content} <span className="whitespace-nowrap text-amber-700">· ▲{p.voteCount}</span>
+              <li key={p.postId}>
+                <Link
+                  to={threadPath(p)}
+                  className="group -mx-1 flex items-center gap-2 rounded px-1 py-0.5 hover:bg-amber-100 focus-visible:bg-amber-100 focus-visible:outline-none"
+                  title={t('Mở câu hỏi này')}
+                >
+                  <span className="min-w-0 flex-1 truncate underline decoration-amber-400 underline-offset-2 group-hover:decoration-amber-700">{p.content}</span>
+                  <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-amber-700">
+                    {ANSWERED.includes(p.status) && (
+                      <span className="rounded-full bg-emerald-100 px-1.5 py-px font-medium text-emerald-700">{t('Đã trả lời')}</span>
+                    )}
+                    <span>▲{p.voteCount}</span>
+                    {(p.replyCount ?? 0) > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <MessageSquare className="h-3 w-3" aria-hidden />
+                        {p.replyCount}
+                      </span>
+                    )}
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
-          <p className="mt-1">{t('Bạn có thể bình chọn câu hỏi đó thay vì gửi câu mới.')}</p>
+          <p className="mt-1">{t('Bấm vào câu hỏi để bình chọn hoặc xem câu trả lời, thay vì gửi câu mới. Câu bạn đang viết vẫn được giữ.')}</p>
         </div>
       )}
       {topics.length > 0 && (
