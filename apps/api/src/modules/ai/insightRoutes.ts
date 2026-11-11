@@ -246,7 +246,7 @@ export default async function insightRoutes(app: FastifyInstance) {
       .filter((x) => x.sim >= cfg.threshold)
       .sort((x, y) => y.sim - x.sim)
       .slice(0, 3)
-      .map((x) => ({ postId: x.p.postId, sessionId: x.p.sessionId, content: x.p.content, voteCount: x.p.voteCount, status: x.p.status, similarity: Math.round(x.sim * 100) / 100 }));
+      .map((x) => ({ postId: x.p.postId, sessionId: x.p.sessionId, content: x.p.content, voteCount: x.p.voteCount, replyCount: x.p.replyCount ?? 0, status: x.p.status, similarity: Math.round(x.sim * 100) / 100 }));
     return { method: 'embedding', items };
   });
 

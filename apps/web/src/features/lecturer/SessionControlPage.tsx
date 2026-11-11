@@ -117,7 +117,7 @@ export function SessionControlPage() {
             <TabsTrigger value="summary"><FileText className="h-4 w-4" /> {t('Tóm tắt')}</TabsTrigger>
           </TabsList>
           <TabsContent value="feed" className="space-y-4">
-            <Composer classId={classId} sessionId={sessionId} topics={s.topics} allowAnonymous={false} disabled={s.status !== 'open'} disabledReason={s.status === 'paused' ? t('Buổi học đang tạm dừng') : t('Bắt đầu buổi học để đăng bài')} existing={feed.data} />
+            <Composer classId={classId} sessionId={sessionId} topics={s.topics} allowAnonymous={false} disabled={s.status !== 'open'} disabledReason={s.status === 'paused' ? t('Buổi học đang tạm dừng') : t('Bắt đầu buổi học để đăng bài')} existing={feed.data} staff />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1">
                 {([
